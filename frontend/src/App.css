@@ -1,0 +1,236 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.App {
+  min-height: 100vh;
+  background: #0d1117;
+  color: #c9d1d9;
+}
+
+.app-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 1.5rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+.app-header h1 {
+  font-size: 2rem;
+  margin: 0;
+  color: white;
+}
+
+.controls {
+  display: flex;
+  gap: 1rem;
+}
+
+.controls select {
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  border: none;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  transition: all 0.3s;
+}
+
+.controls select:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.controls select option {
+  background: #161b22;
+  color: white;
+}
+
+.error-banner {
+  background: #da3633;
+  color: white;
+  padding: 1rem 2rem;
+  text-align: center;
+  font-weight: 500;
+}
+
+.main-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  padding: 1rem;
+  min-height: calc(100vh - 150px);
+}
+
+.editor-section,
+.explanation-section {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 12px;
+  padding: 1.5rem;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.editor-section h2,
+.explanation-section h2 {
+  color: #58a6ff;
+  margin-bottom: 1rem;
+  font-size: 1.2rem;
+}
+
+.placeholder {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  text-align: center;
+  color: #8b949e;
+  padding: 2rem;
+}
+
+.placeholder-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+}
+
+.placeholder h3 {
+  color: #c9d1d9;
+  margin-bottom: 0.5rem;
+}
+
+/* Feature Selector */
+.feature-selector {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  padding: 1rem;
+  background: #161b22;
+  border-bottom: 1px solid #30363d;
+}
+
+.feature-selector button {
+  padding: 0.8rem 2rem;
+  background: #21262d;
+  border: 2px solid #30363d;
+  border-radius: 10px;
+  color: #8b949e;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: all 0.3s;
+}
+
+.feature-selector button:hover {
+  border-color: #58a6ff;
+  color: #c9d1d9;
+}
+
+.feature-selector button.active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-color: transparent;
+}
+
+/* Action Buttons - FIXED */
+.action-buttons {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  display: flex;
+  gap: 1rem;
+  z-index: 1000;
+}
+
+.explain-btn,
+.debug-btn {
+  padding: 1rem 2.5rem;
+  font-size: 1.2rem;
+  font-weight: bold;
+  border: none;
+  border-radius: 50px;
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.explain-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  box-shadow: 0 8px 30px rgba(102, 126, 234, 0.4);
+}
+
+.explain-btn:hover:not(:disabled) {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 40px rgba(102, 126, 234, 0.6);
+}
+
+.debug-btn {
+  background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+  box-shadow: 0 8px 30px rgba(231, 76, 60, 0.4);
+}
+
+.debug-btn:hover:not(:disabled) {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 40px rgba(231, 76, 60, 0.6);
+}
+
+.explain-btn:disabled,
+.debug-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .main-content {
+    grid-template-columns: 1fr;
+  }
+  
+  .app-header {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+  }
+  
+  .action-buttons {
+    flex-direction: column;
+    bottom: 1rem;
+    right: 1rem;
+  }
+  
+  .explain-btn, 
+  .debug-btn {
+    padding: 0.8rem 1.5rem;
+    font-size: 1rem;
+  }
+}
+/* Add to App.css */
+.explanation-section,
+.editor-section {
+  padding-bottom: 120px; /* Space for buttons */
+}
+
+/* Or make buttons smaller on scroll */
+.action-buttons {
+  bottom: 1rem;
+  right: 1rem;
+}
+
+.explain-btn, 
+.debug-btn {
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+}

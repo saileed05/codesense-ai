@@ -1,70 +1,70 @@
-# Getting Started with Create React App
+# 🧠 CodeSense AI - Code Explainer with Visual Diagrams
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+> Understand any code in seconds with AI-powered explanations, visual flowcharts, and step-by-step execution breakdowns.
 
-## Available Scripts
+![CodeSense Demo](demo.gif)
 
-In the project directory, you can run:
+## ✨ Features
 
-### `npm start`
+- 💡 **Multi-Level Explanations**: From ELI5 to Expert
+- 📊 **Visual Flowcharts**: See code logic as diagrams
+- 🔍 **Line-by-Line Breakdown**: Understand every single line
+- 🐛 **Bug Detection**: AI finds issues and suggests fixes
+- 🎯 **Complexity Analysis**: Big O notation explained
+- 🔄 **Step-by-Step Execution**: Watch code run in slow motion
+- 🌍 **Multi-Language**: Python, JavaScript, Java, C++
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+## 🚀 Tech Stack
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+**Frontend**: React, Monaco Editor, Mermaid.js  
+**Backend**: Python FastAPI, Google Gemini AI  
+**Deployment**: Vercel + Render
 
-### `npm test`
+## 🎯 Use Cases
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+- **Students**: Learn programming concepts visually
+- **Interview Prep**: Understand LeetCode solutions deeply
+- **Code Review**: Explain complex code to teammates
+- **Debugging**: Get AI help finding bugs
 
-### `npm run build`
+## 🛠️ Installation
+```bash
+# Clone repo
+git clone https://github.com/yourusername/codesense-ai
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+# Backend
+cd backend
+pip install -r requirements.txt
+uvicorn main:app --reload
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+# Frontend
+cd frontend
+npm install
+npm start
+```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+## 📸 Screenshots
 
-### `npm run eject`
+[Add your screenshots here]
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+## 🎓 What I Learned
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+- AI prompt engineering for technical explanations
+- Visual algorithm representation
+- Full-stack React + Python integration
+- Complex state management in React
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+## 🔮 Future Features
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+- [ ] Video explanations (text-to-speech)
+- [ ] Collaborative code review mode
+- [ ] Save & share explanations
+- [ ] Custom learning paths
 
-## Learn More
+## 📄 License
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+MIT
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+---
 
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+**Built with ❤️ by [Your Name]**
