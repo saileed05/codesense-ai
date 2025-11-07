@@ -5,6 +5,9 @@ import BugDetector from './components/BugDetector';
 import VisualExplainer from './components/VisualExplainer';
 import './App.css';
 
+// Use environment variable for API URL
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+
 function App() {
   const [code, setCode] = useState(`# Paste your code here
 def fibonacci(n):
@@ -31,7 +34,7 @@ def fibonacci(n):
     setActiveFeature('explain');
     
     try {
-      const response = await fetch('http://localhost:8000/explain', {
+      const response = await fetch(`${API_URL}/explain`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -44,14 +47,15 @@ def fibonacci(n):
       });
       
       if (!response.ok) {
-        throw new Error(`Server error: ${response.status}`);
+        const errorData = await response.json();
+        throw new Error(errorData.detail || `Server error: ${response.status}`);
       }
       
       const data = await response.json();
       setExplanation(data);
     } catch (error) {
       console.error('Error:', error);
-      setError('Failed to explain code. Make sure backend is running on http://localhost:8000');
+      setError(`Failed to explain code: ${error.message}. Make sure backend is running on ${API_URL}`);
     } finally {
       setLoading(false);
     }
@@ -68,7 +72,7 @@ def fibonacci(n):
     setActiveFeature('debug');
     
     try {
-      const response = await fetch('http://localhost:8000/detect-bugs', {
+      const response = await fetch(`${API_URL}/detect-bugs`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -81,14 +85,15 @@ def fibonacci(n):
       });
       
       if (!response.ok) {
-        throw new Error(`Server error: ${response.status}`);
+        const errorData = await response.json();
+        throw new Error(errorData.detail || `Server error: ${response.status}`);
       }
       
       const data = await response.json();
       setBugAnalysis(data);
     } catch (error) {
       console.error('Error:', error);
-      setError('Failed to analyze bugs. Make sure backend is running on http://localhost:8000');
+      setError(`Failed to analyze bugs: ${error.message}. Make sure backend is running on ${API_URL}`);
     } finally {
       setLoading(false);
     }
@@ -104,6 +109,8 @@ def fibonacci(n):
             <option value="javascript">JavaScript</option>
             <option value="java">Java</option>
             <option value="cpp">C++</option>
+            <option value="typescript">TypeScript</option>
+            <option value="go">Go</option>
           </select>
           <select value={level} onChange={(e) => setLevel(e.target.value)}>
             <option value="eli5">🍭 ELI5</option>
@@ -120,7 +127,6 @@ def fibonacci(n):
         </div>
       )}
 
-      
       <div className="feature-selector">
         <button 
           className={activeFeature === 'explain' ? 'active' : ''}
@@ -134,7 +140,6 @@ def fibonacci(n):
         >
           🐛 Debug Code
         </button>
-        {/* NEW: Visual Execution Button */}
         <button 
           className={activeFeature === 'visual' ? 'active' : ''}
           onClick={() => setActiveFeature('visual')}
@@ -154,9 +159,6 @@ def fibonacci(n):
         </div>
 
         <div className="explanation-section">
-          {/* ========================================
-              UPDATE HEADING (Line 157-163)
-              ======================================== */}
           <h2>
             {activeFeature === 'explain' && '💡 Explanation'}
             {activeFeature === 'debug' && '🐛 Bug Analysis'}
@@ -173,14 +175,13 @@ def fibonacci(n):
             <BugDetector bugs={bugAnalysis} />
           )}
           
-          
-          {/* NEW: Visual Explainer */}
+          {/* Visual Explainer */}
           {activeFeature === 'visual' && (
-            <VisualExplainer code={code} language={language} />
+            <VisualExplainer code={code} language={language} apiUrl={API_URL} />
           )}
           
           {/* Placeholders */}
-          {activeFeature === 'explain' && !explanation && (
+          {activeFeature === 'explain' && !explanation && !loading && (
             <div className="placeholder">
               <div className="placeholder-icon">🤔</div>
               <h3>Ready to understand your code?</h3>
@@ -188,7 +189,7 @@ def fibonacci(n):
             </div>
           )}
           
-          {activeFeature === 'debug' && !bugAnalysis && (
+          {activeFeature === 'debug' && !bugAnalysis && !loading && (
             <div className="placeholder">
               <div className="placeholder-icon">🔍</div>
               <h3>Ready to find bugs?</h3>
@@ -196,12 +197,10 @@ def fibonacci(n):
             </div>
           )}
           
-          {/* NEW: Visual placeholder (optional - VisualExplainer has its own) */}
-          {activeFeature === 'visual' && !code.trim() && (
+          {loading && (
             <div className="placeholder">
-              <div className="placeholder-icon">🎬</div>
-              <h3>Ready to see your code in action?</h3>
-              <p>Paste your code on the left to visualize execution</p>
+              <div className="spinner"></div>
+              <p>Analyzing your code...</p>
             </div>
           )}
         </div>

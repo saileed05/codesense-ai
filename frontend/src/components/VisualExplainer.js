@@ -1,17 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import ArrayVisualizer from './visualizations/ArrayVisualizer';
-import { Play, Pause, RotateCcw, SkipBack, SkipForward } from 'lucide-react';
+import GraphVisualizer from './visualizations/GraphVisualizer';
+import QueueVisualizer from './visualizations/QueueVisualizer';
+import GraphWithDSVisualizer from './visualizations/GraphWithDSVisualizer';
 import './VisualExplainer.css';
 
-const VisualExplainer = ({ code, language }) => {
+const VisualExplainer = ({ code, language, apiUrl }) => {
   const [steps, setSteps] = useState([]);
   const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [playbackSpeed, setPlaybackSpeed] = useState(1500); // ms per step
+  const [playbackSpeed, setPlaybackSpeed] = useState(2500);
 
-  // Fetch visualization from backend
+  const API_URL = apiUrl || process.env.REACT_APP_API_URL || 'http://localhost:8000';
+
   const fetchVisualization = async () => {
     if (!code.trim()) {
       setError('Please enter some code first!');
@@ -22,20 +25,17 @@ const VisualExplainer = ({ code, language }) => {
     setError(null);
     
     try {
-      console.log('🎬 Fetching visualization...');
+      console.log('🎬 Fetching visualization from:', `${API_URL}/visualize`);
       
-      const response = await fetch('http://localhost:8000/visualize', {
+      const response = await fetch(`${API_URL}/visualize`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          code, 
-          language, 
-          level: 'beginner' 
-        })
+        body: JSON.stringify({ code, language, level: 'beginner' })
       });
 
       if (!response.ok) {
-        throw new Error(`Server error: ${response.status}`);
+        const errorData = await response.json();
+        throw new Error(errorData.detail || `Server error: ${response.status}`);
       }
 
       const data = await response.json();
@@ -53,7 +53,6 @@ const VisualExplainer = ({ code, language }) => {
     }
   };
 
-  // Playback controls
   const nextStep = () => {
     if (currentStep < steps.length - 1) {
       setCurrentStep(prev => prev + 1);
@@ -80,24 +79,49 @@ const VisualExplainer = ({ code, language }) => {
     setIsPlaying(!isPlaying);
   };
 
-  // Auto-play effect
   useEffect(() => {
     let interval;
     if (isPlaying && currentStep < steps.length - 1) {
-      interval = setInterval(() => {
-        nextStep();
-      }, playbackSpeed);
+      interval = setInterval(nextStep, playbackSpeed);
     }
     return () => clearInterval(interval);
   }, [isPlaying, currentStep, steps, playbackSpeed]);
 
-  // Render different visualization types
   const renderVisualization = (viz) => {
     if (!viz) return null;
 
     switch (viz.type) {
+      case 'graph_with_ds':
+        return <GraphWithDSVisualizer data={viz} />;
+      
       case 'array':
         return <ArrayVisualizer data={viz} />;
+      
+      case 'queue':
+        return <QueueVisualizer data={viz} />;
+      
+      case 'visited':
+        return <QueueVisualizer data={viz} />;
+      
+      case 'graph':
+        return <GraphVisualizer data={viz} />;
+      
+      case 'dict':
+        return (
+          <div className="dict-display">
+            <div className="dict-header">
+              <span className="dict-name">{viz.name}</span>
+              <span className="dict-count">{Object.keys(viz.data || {}).length} keys</span>
+            </div>
+            <div className="dict-content">
+              {viz.formatted && viz.formatted.map((line, idx) => (
+                <div key={idx} className="dict-line">
+                  <code>{line}</code>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
       
       case 'variable':
         return (
@@ -129,34 +153,19 @@ const VisualExplainer = ({ code, language }) => {
 
   const currentStepData = steps[currentStep];
 
-  // Empty state
-   if (steps.length === 0 && !loading && !error) {
+  if (steps.length === 0 && !loading && !error) {
     return (
-     <div className="visual-empty">
-       <div className="empty-icon">🎬</div>
-       <h3>Ready to see your code in action?</h3>
-       <p>Watch variables, arrays, and data structures come to life</p>
-      
-       {/* ADD THIS SECTION */}
-        <div className="supported-features">
-         <p className="feature-note">✅ Currently supports:</p>
-         <ul className="feature-list">
-           <li>Variable assignments (x = 5)</li>
-           <li>Array/List operations (append, push)</li>
-           <li>Loops (for, while)</li>
-         </ul>
-         <p className="limitation-note">⚠️ Not yet supported: Recursion, pure functions</p>
-        </div>
-      
-      <button onClick={fetchVisualization} className="generate-btn">
-        🚀 Generate Visual Execution
-      </button>
-    </div>
-  );
-}
-  
+      <div className="visual-empty">
+        <div className="empty-icon">🎬</div>
+        <h3>Ready to see your code in action?</h3>
+        <p>Watch variables, arrays, and data structures come to life</p>
+        <button onClick={fetchVisualization} className="generate-btn">
+          🚀 Generate Visual Execution
+        </button>
+      </div>
+    );
+  }
 
-  // Loading state
   if (loading) {
     return (
       <div className="visual-loading">
@@ -166,7 +175,6 @@ const VisualExplainer = ({ code, language }) => {
     );
   }
 
-  // Error state
   if (error) {
     return (
       <div className="visual-error">
@@ -180,53 +188,27 @@ const VisualExplainer = ({ code, language }) => {
     );
   }
 
-  // Main visualization UI
   return (
     <div className="visual-explainer">
-      {/* Controls Bar */}
       <div className="controls-bar">
         <div className="playback-controls">
-          <button 
-            onClick={reset} 
-            className="control-btn reset-btn"
-            title="Reset to start"
-          >
-            <RotateCcw size={20} />
+          <button onClick={reset} className="control-btn reset-btn" title="Reset">
+            ⏮️
           </button>
-          
-          <button 
-            onClick={prevStep} 
-            disabled={currentStep === 0}
-            className="control-btn"
-            title="Previous step"
-          >
-            <SkipBack size={20} />
+          <button onClick={prevStep} disabled={currentStep === 0} className="control-btn" title="Previous">
+            ⏪
           </button>
-          
-          <button 
-            onClick={togglePlay}
-            className="control-btn play-btn"
-            title={isPlaying ? 'Pause' : 'Play'}
-          >
-            {isPlaying ? <Pause size={24} /> : <Play size={24} />}
+          <button onClick={togglePlay} className="control-btn play-btn" title={isPlaying ? 'Pause' : 'Play'}>
+            {isPlaying ? '⏸️' : '▶️'}
           </button>
-          
-          <button 
-            onClick={nextStep} 
-            disabled={currentStep === steps.length - 1}
-            className="control-btn"
-            title="Next step"
-          >
-            <SkipForward size={20} />
+          <button onClick={nextStep} disabled={currentStep === steps.length - 1} className="control-btn" title="Next">
+            ⏩
           </button>
         </div>
 
         <div className="speed-control">
           <label>Speed:</label>
-          <select 
-            value={playbackSpeed} 
-            onChange={(e) => setPlaybackSpeed(Number(e.target.value))}
-          >
+          <select value={playbackSpeed} onChange={(e) => setPlaybackSpeed(Number(e.target.value))}>
             <option value={2500}>0.5x</option>
             <option value={1500}>1x</option>
             <option value={1000}>1.5x</option>
@@ -235,51 +217,34 @@ const VisualExplainer = ({ code, language }) => {
         </div>
       </div>
 
-      {/* Progress Bar */}
       <div className="progress-section">
         <div className="progress-info">
-          <span className="step-counter">
-            Step {currentStep + 1} of {steps.length}
-          </span>
-          <span className="line-info">
-            Line {currentStepData?.line || 0}
-          </span>
+          <span className="step-counter">Step {currentStep + 1} of {steps.length}</span>
+          <span className="line-info">Line {currentStepData?.line || 0}</span>
         </div>
         <div className="progress-bar">
-          <div 
-            className="progress-fill"
-            style={{ width: `${((currentStep + 1) / steps.length) * 100}%` }}
-          />
+          <div className="progress-fill" style={{ width: `${((currentStep + 1) / steps.length) * 100}%` }} />
         </div>
       </div>
 
-      {/* Main Content Area */}
       <div className="visual-content">
-        {/* Current Code Line */}
         <div className="code-display">
           <div className="code-label">Current Line:</div>
-          <pre className="code-line">
-            <code>{currentStepData?.code || ''}</code>
-          </pre>
-          <div className="code-description">
-            {currentStepData?.description || ''}
-          </div>
+          <pre className="code-line"><code>{currentStepData?.code || ''}</code></pre>
+          <div className="code-description">{currentStepData?.description || ''}</div>
         </div>
 
-        {/* Visualization Area */}
         <div className="visualization-area">
           <div className="viz-label">Memory & Variables:</div>
           <div className="viz-container">
-            {currentStepData?.visualization ? (
-              renderVisualization(currentStepData.visualization)
-            ) : (
+            {currentStepData?.visualization ? 
+              renderVisualization(currentStepData.visualization) : 
               <div className="no-viz">No visualization for this step</div>
-            )}
+            }
           </div>
         </div>
       </div>
 
-      {/* Legend */}
       <div className="legend">
         <h4>Legend:</h4>
         <div className="legend-items">
@@ -298,7 +263,6 @@ const VisualExplainer = ({ code, language }) => {
         </div>
       </div>
 
-      {/* Regenerate Button */}
       <div className="actions">
         <button onClick={fetchVisualization} className="regenerate-btn">
           🔄 Regenerate Visualization

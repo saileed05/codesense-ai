@@ -1,0 +1,143 @@
+.graph-visualizer {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+  animation: slideIn 0.5s ease-out;
+}
+
+.graph-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+}
+
+.graph-name {
+  color: #58a6ff;
+  font-family: 'Consolas', monospace;
+  font-size: 1.3rem;
+  font-weight: bold;
+}
+
+.node-count {
+  color: #8b949e;
+  font-size: 0.9rem;
+  padding: 0.3rem 0.8rem;
+  background: rgba(139, 148, 158, 0.1);
+  border-radius: 4px;
+}
+
+.graph-structure {
+  background: #161b22;
+  border: 2px solid #30363d;
+  border-radius: 8px;
+  padding: 1rem;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.graph-line {
+  padding: 0.3rem 0;
+  font-family: 'Consolas', monospace;
+  color: #79c0ff;
+  font-size: 0.9rem;
+}
+
+.nodes-section {
+  background: #0d1117;
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.nodes-section h4 {
+  color: #8b949e;
+  margin-bottom: 0.8rem;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+}
+
+.node-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.node-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.8rem;
+  background: #21262d;
+  border: 2px solid #30363d;
+  border-radius: 8px;
+  transition: all 0.3s;
+}
+
+.node-item:hover {
+  border-color: #58a6ff;
+  transform: translateX(5px);
+}
+
+.node-circle {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: bold;
+  font-size: 1.2rem;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.node-connections {
+  flex: 1;
+  color: #c9d1d9;
+  font-family: 'Consolas', monospace;
+}
+
+.no-edges {
+  color: #8b949e;
+  font-style: italic;
+}
+
+.graph-metadata {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  padding: 0.8rem;
+  background: #0d1117;
+  border-radius: 6px;
+}
+
+.metadata-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.metadata-label {
+  color: #8b949e;
+  font-size: 0.9rem;
+}
+
+.metadata-value {
+  color: #3fb950;
+  font-family: 'Consolas', monospace;
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
