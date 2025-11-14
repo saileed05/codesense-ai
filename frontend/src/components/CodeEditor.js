@@ -1,37 +1,68 @@
-import React from 'react';
+import React, { useRef, useEffect, useState } from 'react';
+import './CodeEditor.css';
 
-const CodeEditor = ({ value, onChange, language }) => {
+const CodeEditor = ({ value, onChange, language, currentLine = null, readOnly = false }) => {
+  const textareaRef = useRef(null);
+  const lineNumbersRef = useRef(null);
+  const [lineCount, setLineCount] = useState(1);
+
+  useEffect(() => {
+    const lines = value.split('\n').length;
+    setLineCount(lines);
+  }, [value]);
+
+  const handleScroll = (e) => {
+    if (lineNumbersRef.current) {
+      lineNumbersRef.current.scrollTop = e.target.scrollTop;
+    }
+  };
+
+  const handleTab = (e) => {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const start = e.target.selectionStart;
+      const end = e.target.selectionEnd;
+      const newValue = value.substring(0, start) + '    ' + value.substring(end);
+      onChange(newValue);
+      
+      setTimeout(() => {
+        textareaRef.current.selectionStart = textareaRef.current.selectionEnd = start + 4;
+      }, 0);
+    }
+  };
+
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-      <textarea
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={`Paste your ${language} code here...`}
-        spellCheck={false}
-        style={{
-          flex: 1,
-          minHeight: '500px',
-          background: '#0d1117',
-          color: '#c9d1d9',
-          border: '1px solid #30363d',
-          borderRadius: '8px',
-          padding: '1rem',
-          fontFamily: "'Consolas', 'Monaco', 'Courier New', monospace",
-          fontSize: '14px',
-          lineHeight: '1.6',
-          resize: 'none',
-          outline: 'none',
-        }}
-      />
-      <div style={{ 
-        marginTop: '0.5rem', 
-        fontSize: '0.85rem', 
-        color: '#8b949e',
-        display: 'flex',
-        justifyContent: 'space-between'
-      }}>
-        <span>Language: {language}</span>
-        <span>{value.split('\n').length} lines</span>
+    <div className="code-editor-container">
+      <div className="code-editor-wrapper">
+        <div className="line-numbers" ref={lineNumbersRef}>
+          {Array.from({ length: lineCount }, (_, i) => (
+            <div 
+              key={i + 1} 
+              className={`line-number ${currentLine === i + 1 ? 'current-line' : ''}`}
+            >
+              {i + 1}
+            </div>
+          ))}
+        </div>
+        
+        <textarea
+          ref={textareaRef}
+          value={value}
+          onChange={(e) => !readOnly && onChange(e.target.value)}
+          onScroll={handleScroll}
+          onKeyDown={handleTab}
+          placeholder={`Paste your ${language} code here...`}
+          spellCheck={false}
+          className="code-textarea"
+          readOnly={readOnly}
+        />
+      </div>
+      
+      <div className="code-editor-footer">
+        <span className="editor-info">Language: {language}</span>
+        <span className="editor-info">{lineCount} lines</span>
+        <span className="editor-info">{value.length} characters</span>
+        {currentLine && <span className="editor-info">Current Line: {currentLine}</span>}
       </div>
     </div>
   );

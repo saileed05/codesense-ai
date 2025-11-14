@@ -1,11 +1,19 @@
 """
-Enhanced Code Analyzer - Supports animated BFS/DFS graph traversals
+Enhanced Code Analyzer v2.0
+Supports ANY graph algorithm visualization: BFS, DFS, Dijkstra, and generic graphs
 """
 import ast
-from typing import List, Dict, Any
+import math
+from typing import List, Dict, Any, Optional, Tuple
+from collections import deque
+
+
+# ============================================================================
+# UTILITY FUNCTIONS
+# ============================================================================
 
 def safe_eval_value(node):
-    """Safely evaluate expressions to get actual values"""
+    """Safely evaluate AST expressions to get actual values"""
     try:
         if isinstance(node, ast.Constant):
             return node.value
@@ -20,8 +28,13 @@ def safe_eval_value(node):
             for key, value in zip(node.keys, node.values):
                 k = safe_eval_value(key)
                 v = safe_eval_value(value)
-                result[k] = v
+                if k is not None:
+                    result[k] = v
             return result
+        elif isinstance(node, ast.Set):
+            return {safe_eval_value(elt) for elt in node.elts}
+        elif isinstance(node, ast.Tuple):
+            return tuple(safe_eval_value(elt) for elt in node.elts)
         elif isinstance(node, ast.BinOp):
             left = safe_eval_value(node.left)
             right = safe_eval_value(node.right)
@@ -32,15 +45,23 @@ def safe_eval_value(node):
             elif isinstance(node.op, ast.Mult):
                 return left * right
             elif isinstance(node.op, ast.Div):
-                return left / right
+                return left / right if right != 0 else float('inf')
         elif isinstance(node, ast.UnaryOp):
             operand = safe_eval_value(node.operand)
             if isinstance(node.op, ast.USub):
                 return -operand
+            elif isinstance(node.op, ast.UAdd):
+                return +operand
+        elif isinstance(node, ast.Name):
+            # Return the variable name as a string
+            return f"<var:{node.id}>"
         else:
             return ast.unparse(node) if hasattr(ast, 'unparse') else str(node)
     except:
-        return ast.unparse(node) if hasattr(ast, 'unparse') else "..."
+        try:
+            return ast.unparse(node) if hasattr(ast, 'unparse') else "..."
+        except:
+            return "..."
 
 
 def detect_type(node) -> str:
@@ -51,6 +72,8 @@ def detect_type(node) -> str:
         return "dict"
     elif isinstance(node, ast.Set):
         return "set"
+    elif isinstance(node, ast.Tuple):
+        return "tuple"
     elif isinstance(node, ast.Constant):
         if isinstance(node.value, int):
             return "int"
@@ -60,49 +83,71 @@ def detect_type(node) -> str:
             return "string"
         elif isinstance(node.value, bool):
             return "bool"
+        elif node.value is None:
+            return "none"
     elif isinstance(node, ast.Call):
         if hasattr(node.func, 'id'):
             func_name = node.func.id
-            if func_name in ['list', 'dict', 'set', 'tuple']:
+            if func_name in ['list', 'dict', 'set', 'tuple', 'deque']:
                 return func_name
     return "unknown"
 
 
-def format_dict_for_display(d, max_items=5):
+def format_dict_for_display(d, max_items=10):
     """Format dictionary for visual display"""
     if not isinstance(d, dict):
-        return str(d)
+        return [str(d)]
     
     items = list(d.items())[:max_items]
     formatted = []
+    
     for k, v in items:
         if isinstance(v, list):
-            v_str = f"[{', '.join(map(str, v[:3]))}{'...' if len(v) > 3 else ''}]"
+            if len(v) == 0:
+                v_str = "[]"
+            elif len(v) <= 3:
+                v_str = f"[{', '.join(map(str, v))}]"
+            else:
+                v_str = f"[{', '.join(map(str, v[:3]))}... +{len(v)-3} more]"
+        elif isinstance(v, dict):
+            v_str = f"{{...{len(v)} keys}}"
         else:
             v_str = str(v)
-        formatted.append(f"{k}: {v_str}")
+        
+        formatted.append(f"  {k}: {v_str}")
     
     if len(d) > max_items:
-        formatted.append("...")
+        formatted.append(f"  ... +{len(d) - max_items} more")
     
     return formatted
 
 
+# ============================================================================
+# GRAPH UTILITIES
+# ============================================================================
+
 def calculate_graph_positions(nodes, edges):
-    """Calculate optimal positions for graph nodes in a circle layout"""
-    import math
-    
+    """Calculate optimal positions for graph nodes using circle layout"""
     n = len(nodes)
     if n == 0:
         return {}
     
     # Center of the canvas
     center_x, center_y = 400, 250
-    radius = min(150, 50 + n * 10)
+    
+    # Dynamic radius based on node count
+    if n == 1:
+        radius = 0
+    elif n <= 5:
+        radius = 120
+    else:
+        radius = min(180, 80 + n * 8)
     
     positions = {}
+    
     for i, node in enumerate(nodes):
-        angle = (2 * math.pi * i) / n - (math.pi / 2)
+        # Distribute nodes evenly in a circle
+        angle = (2 * math.pi * i) / n - (math.pi / 2)  # Start from top
         x = center_x + radius * math.cos(angle)
         y = center_y + radius * math.sin(angle)
         positions[node] = {"x": int(x), "y": int(y)}
@@ -110,27 +155,204 @@ def calculate_graph_positions(nodes, edges):
     return positions
 
 
-def simulate_bfs_dfs(graph_data, start_node, algorithm="bfs"):
-    """Simulate BFS/DFS traversal and generate step-by-step states"""
+def is_adjacency_list(data) -> bool:
+    """Check if data is a valid adjacency list (dict with list values)"""
+    if not isinstance(data, dict) or not data:
+        return False
+    
+    # Check if all values are lists
+    return all(isinstance(v, list) for v in data.values())
+
+
+def is_edge_list(data) -> bool:
+    """Check if data is an edge list (list of tuples/lists)"""
+    if not isinstance(data, list) or not data:
+        return False
+    
+    # Check if all elements are tuples or lists with 2+ elements
+    return all(
+        isinstance(item, (tuple, list)) and len(item) >= 2 
+        for item in data
+    )
+
+
+def edge_list_to_adjacency_list(edges) -> Dict:
+    """Convert edge list to adjacency list"""
+    adj_list = {}
+    
+    for edge in edges:
+        if len(edge) < 2:
+            continue
+        
+        u, v = edge[0], edge[1]
+        
+        if u not in adj_list:
+            adj_list[u] = []
+        if v not in adj_list:
+            adj_list[v] = []
+        
+        adj_list[u].append(v)
+        
+        # If weighted edge, store as tuple
+        if len(edge) > 2:
+            adj_list[u][-1] = (v, edge[2])
+    
+    return adj_list
+
+
+# ============================================================================
+# GRAPH ALGORITHM DETECTION
+# ============================================================================
+
+class GraphDetector:
+    """Detects graph structures and algorithms in code"""
+    
+    def __init__(self, code: str, variable_states: Dict):
+        self.code = code
+        self.code_lower = code.lower()
+        self.states = variable_states
+        self.graph_var = None
+        self.graph_data = None
+        self.algorithm = None
+        
+    def find_graph(self) -> Optional[Tuple[str, Dict]]:
+        """Find any graph structure in variables"""
+        
+        # Priority 1: Look for adjacency list (most common)
+        for name, state in self.states.items():
+            if state.get('type') == 'dict':
+                data = state.get('data', {})
+                if is_adjacency_list(data):
+                    self.graph_var = name
+                    self.graph_data = data
+                    return name, data
+        
+        # Priority 2: Look for edge list
+        for name, state in self.states.items():
+            if state.get('type') == 'list':
+                data = state.get('data', [])
+                if is_edge_list(data):
+                    # Convert to adjacency list
+                    adj_list = edge_list_to_adjacency_list(data)
+                    self.graph_var = name
+                    self.graph_data = adj_list
+                    return name, adj_list
+        
+        return None, None
+    
+    def detect_algorithm(self) -> Optional[str]:
+        """Detect which graph algorithm is being used"""
+        
+        if not self.graph_var:
+            return None
+        
+        code = self.code
+        code_lower = self.code_lower
+        
+        # Check for specific algorithm patterns
+        
+        # Dijkstra's Algorithm
+        if ('heapq' in code or 'priorityqueue' in code_lower or 'heappush' in code):
+            if 'distance' in code_lower or 'dist' in code_lower:
+                self.algorithm = 'dijkstra'
+                return 'dijkstra'
+        
+        # Topological Sort
+        if 'indegree' in code_lower or 'in_degree' in code_lower:
+            self.algorithm = 'topological_sort'
+            return 'topological_sort'
+        
+        # Kruskal's / Union-Find
+        if 'parent' in code_lower and ('union' in code_lower or 'find' in code_lower):
+            self.algorithm = 'union_find'
+            return 'union_find'
+        
+        # Prim's Algorithm
+        if 'mst' in code_lower or 'minimum spanning tree' in code_lower:
+            if 'heapq' in code or 'priorityqueue' in code_lower:
+                self.algorithm = 'prim'
+                return 'prim'
+        
+        # BFS Detection (pop from front)
+        if '.pop(0)' in code or '.popleft()' in code:
+            # Make sure there's a list/deque being used
+            has_list_structure = any(
+                state.get('type') in ['list', 'deque'] 
+                for state in self.states.values()
+            )
+            if has_list_structure:
+                self.algorithm = 'bfs'
+                return 'bfs'
+        
+        # DFS Detection (pop from back OR recursion)
+        if '.pop()' in code and '.append(' in code:
+            self.algorithm = 'dfs'
+            return 'dfs'
+        
+        # Recursive DFS (look for function calls)
+        if 'def ' in code and '(' in code:
+            # Check if function calls itself (recursion)
+            func_names = []
+            try:
+                tree = ast.parse(code)
+                for node in ast.walk(tree):
+                    if isinstance(node, ast.FunctionDef):
+                        func_names.append(node.name)
+                
+                # Check if any function calls itself
+                for node in ast.walk(tree):
+                    if isinstance(node, ast.Call):
+                        if hasattr(node.func, 'id') and node.func.id in func_names:
+                            self.algorithm = 'dfs_recursive'
+                            return 'dfs_recursive'
+            except:
+                pass
+        
+        # Default: Generic graph visualization
+        self.algorithm = 'generic'
+        return 'generic'
+
+
+# ============================================================================
+# GRAPH TRAVERSAL SIMULATOR
+# ============================================================================
+
+def simulate_graph_traversal(graph_data: Dict, start_node, algorithm: str = "bfs") -> List[Dict]:
+    """
+    Universal graph traversal simulator
+    Supports: BFS, DFS, and generic graph display
+    """
+    
     edges = graph_data
     nodes = list(edges.keys())
     
+    # Ensure all referenced nodes are in the node list
+    all_nodes = set(nodes)
+    for neighbors in edges.values():
+        for neighbor in neighbors:
+            if isinstance(neighbor, tuple):
+                all_nodes.add(neighbor[0])  # Weighted edge
+            else:
+                all_nodes.add(neighbor)
+    nodes = sorted(list(all_nodes))
+    
+    # Validate start node
     if start_node not in nodes:
         start_node = nodes[0] if nodes else None
     
     if not start_node:
         return []
     
-    visited = []
-    queue_or_stack = [start_node]
+    visited = set()
+    structure = [start_node]  # Works for both queue (BFS) and stack (DFS)
     traversal_steps = []
     
     positions = calculate_graph_positions(nodes, edges)
     
-    # Initial state
+    # Initial state: Add start node
     traversal_steps.append({
         "graph": {
-            "name": "graph",
+            "name": f"{'BFS' if algorithm == 'bfs' else 'DFS'} Traversal",
             "nodes": nodes,
             "edges": edges,
             "positions": positions,
@@ -140,83 +362,95 @@ def simulate_bfs_dfs(graph_data, start_node, algorithm="bfs"):
         },
         "data_structure": {
             "type": "queue" if algorithm == "bfs" else "stack",
-            "name": "queue" if algorithm == "bfs" else "stack",
+            "name": "Queue" if algorithm == "bfs" else "Stack",
             "data": [start_node],
             "highlight": [0],
             "operation": "enqueue" if algorithm == "bfs" else "push"
         }
     })
     
-    while queue_or_stack:
-        # Dequeue/Pop
+    # Traversal loop
+    while structure:
+        # BFS: Remove from front (FIFO), DFS: Remove from back (LIFO)
         if algorithm == "bfs":
-            current = queue_or_stack.pop(0)
-        else:
-            current = queue_or_stack.pop()
+            current = structure.pop(0)
+        else:  # DFS
+            current = structure.pop()
         
-        if current not in visited:
-            visited.append(current)
+        # Skip if already visited
+        if current in visited:
+            continue
+        
+        visited.add(current)
+        
+        # Show node being processed (dequeue/pop)
+        traversal_steps.append({
+            "graph": {
+                "name": f"{'BFS' if algorithm == 'bfs' else 'DFS'} Traversal",
+                "nodes": nodes,
+                "edges": edges,
+                "positions": positions,
+                "current_node": current,
+                "visited": list(visited),
+                "exploring": []
+            },
+            "data_structure": {
+                "type": "queue" if algorithm == "bfs" else "stack",
+                "name": "Queue" if algorithm == "bfs" else "Stack",
+                "data": structure[:],
+                "removed_value": current,
+                "operation": "dequeue" if algorithm == "bfs" else "pop"
+            }
+        })
+        
+        # Get neighbors (handle weighted graphs)
+        neighbors = edges.get(current, [])
+        
+        for neighbor in neighbors:
+            # Handle weighted edges (tuple format)
+            if isinstance(neighbor, tuple):
+                neighbor_node = neighbor[0]
+            else:
+                neighbor_node = neighbor
             
-            # After dequeue, before visiting
-            traversal_steps.append({
-                "graph": {
-                    "name": "graph",
-                    "nodes": nodes,
-                    "edges": edges,
-                    "positions": positions,
-                    "current_node": current,
-                    "visited": visited[:],
-                    "exploring": []
-                },
-                "data_structure": {
-                    "type": "queue" if algorithm == "bfs" else "stack",
-                    "name": "queue" if algorithm == "bfs" else "stack",
-                    "data": queue_or_stack[:],
-                    "removed_value": current,
-                    "operation": "dequeue" if algorithm == "bfs" else "pop"
-                }
-            })
-            
-            # Explore neighbors
-            neighbors = edges.get(current, [])
-            for neighbor in neighbors:
-                if neighbor not in visited and neighbor not in queue_or_stack:
-                    queue_or_stack.append(neighbor)
-                    
-                    # Show neighbor being added
-                    traversal_steps.append({
-                        "graph": {
-                            "name": "graph",
-                            "nodes": nodes,
-                            "edges": edges,
-                            "positions": positions,
-                            "current_node": current,
-                            "visited": visited[:],
-                            "exploring": [neighbor]
-                        },
-                        "data_structure": {
-                            "type": "queue" if algorithm == "bfs" else "stack",
-                            "name": "queue" if algorithm == "bfs" else "stack",
-                            "data": queue_or_stack[:],
-                            "highlight": [len(queue_or_stack) - 1],
-                            "operation": "enqueue" if algorithm == "bfs" else "push"
-                        }
-                    })
+            # Add unvisited neighbors to structure
+            if neighbor_node not in visited and neighbor_node not in structure:
+                structure.append(neighbor_node)
+                
+                # Show neighbor being added
+                traversal_steps.append({
+                    "graph": {
+                        "name": f"{'BFS' if algorithm == 'bfs' else 'DFS'} Traversal",
+                        "nodes": nodes,
+                        "edges": edges,
+                        "positions": positions,
+                        "current_node": current,
+                        "visited": list(visited),
+                        "exploring": [neighbor_node]
+                    },
+                    "data_structure": {
+                        "type": "queue" if algorithm == "bfs" else "stack",
+                        "name": "Queue" if algorithm == "bfs" else "Stack",
+                        "data": structure[:],
+                        "highlight": [len(structure) - 1],
+                        "operation": "enqueue" if algorithm == "bfs" else "push"
+                    }
+                })
     
-    # Final state
+    # Final state: Traversal complete
     traversal_steps.append({
         "graph": {
-            "name": "graph",
+            "name": f"{'BFS' if algorithm == 'bfs' else 'DFS'} Traversal Complete",
             "nodes": nodes,
             "edges": edges,
             "positions": positions,
             "current_node": None,
-            "visited": visited,
+            "visited": list(visited),
             "exploring": []
         },
         "data_structure": {
             "type": "queue" if algorithm == "bfs" else "stack",
-            "name": "queue" if algorithm == "bfs" else "stack",
+            "name": "Queue" if algorithm == "bfs" else "Stack",
             "data": [],
             "operation": None
         }
@@ -225,52 +459,28 @@ def simulate_bfs_dfs(graph_data, start_node, algorithm="bfs"):
     return traversal_steps
 
 
-def detect_bfs_dfs_pattern(code: str, variable_states: dict):
-    """Detect if code contains BFS or DFS pattern"""
-    code_lower = code.lower()
-    
-    has_graph = any('graph' in name or isinstance(state.get('data'), dict) 
-                   for name, state in variable_states.items() 
-                   if state.get('type') == 'dict')
-    
-    has_queue = any('queue' in name or 'q' == name 
-                   for name in variable_states.keys())
-    
-    has_stack = any('stack' in name or 's' == name 
-                   for name in variable_states.keys())
-    
-    has_visited = any('visited' in name 
-                     for name in variable_states.keys())
-    
-    has_pop_0 = 'pop(0)' in code or '.popleft()' in code
-    has_append = '.append(' in code
-    
-    # BFS pattern: graph + queue + visited + pop(0)
-    if has_graph and has_queue and has_visited and has_pop_0:
-        return "bfs"
-    
-    # DFS pattern: graph + stack + visited + pop()
-    if has_graph and (has_stack or has_queue) and has_visited and has_append:
-        if not has_pop_0:
-            return "dfs"
-    
-    return None
-
+# ============================================================================
+# MAIN EXECUTION STEP GENERATOR
+# ============================================================================
 
 def generate_execution_steps(code: str, language: str = "python") -> List[Dict[str, Any]]:
-    """Generate step-by-step execution visualization with animated BFS/DFS"""
+    """
+    Generate step-by-step execution visualization
+    Now supports: BFS, DFS, any graph structure, arrays, queues, variables
+    """
     
     steps = []
     
-    if language != "python":
+    # Only Python is supported for now
+    if language.lower() != "python":
         return [{
             "step": 0,
             "line": 1,
-            "code": f"# {language} visualization coming soon",
-            "description": f"Only Python is currently supported for visualization",
+            "code": f"# {language.upper()} visualization coming soon",
+            "description": f"⚠️ Currently only Python is supported. Try Python code with graphs, arrays, or BFS/DFS!",
             "visualization": {
                 "type": "none",
-                "message": f"{language} visualization not yet implemented"
+                "message": f"💡 Tip: Supported algorithms include BFS, DFS, Dijkstra, and basic data structures"
             }
         }]
     
@@ -280,11 +490,9 @@ def generate_execution_steps(code: str, language: str = "python") -> List[Dict[s
         
         step_num = 0
         variable_states = {}
-        graph_data = None
-        start_node = None
-        algorithm = None
         
-        # First pass: collect all variable assignments
+        # ===== PHASE 1: Collect all variable assignments =====
+        
         for node in ast.walk(tree):
             if isinstance(node, ast.Assign):
                 for target in node.targets:
@@ -296,49 +504,81 @@ def generate_execution_steps(code: str, language: str = "python") -> List[Dict[s
                         variable_states[var_name] = {
                             "type": var_type,
                             "value": actual_value,
-                            "data": actual_value if isinstance(actual_value, (list, dict)) else None
+                            "data": actual_value if isinstance(actual_value, (list, dict, set)) else None
                         }
-                        
-                        # Detect graph
-                        if var_type == "dict" and isinstance(actual_value, dict):
-                            if actual_value and isinstance(list(actual_value.values())[0], list):
-                                graph_data = actual_value
         
-        # Detect BFS/DFS pattern
-        algorithm = detect_bfs_dfs_pattern(code, variable_states)
+        # ===== PHASE 2: Detect graph algorithms =====
         
-        # If BFS/DFS detected, generate animated traversal
-        if algorithm and graph_data:
-            start_node = list(graph_data.keys())[0]
+        detector = GraphDetector(code, variable_states)
+        graph_name, graph_data = detector.find_graph()
+        algorithm = detector.detect_algorithm()
+        
+        # ===== PHASE 3: Generate appropriate visualization =====
+        
+        # If we detected a graph traversal algorithm, simulate it
+        if algorithm in ['bfs', 'dfs'] and graph_data:
             
-            # Check if there's an explicit start node in code
-            for node in ast.walk(tree):
-                if isinstance(node, ast.Assign):
-                    for target in node.targets:
-                        if isinstance(target, ast.Name) and target.id in ['start', 'source', 'root']:
-                            start_val = safe_eval_value(node.value)
-                            if start_val in graph_data:
-                                start_node = start_val
+            # Find start node
+            start_node = None
             
-            traversal_steps = simulate_bfs_dfs(graph_data, start_node, algorithm)
+            # Check for explicit start variable
+            for name in ['start', 'source', 'root', 'begin']:
+                if name in variable_states:
+                    start_val = variable_states[name].get('value')
+                    if start_val in graph_data:
+                        start_node = start_val
+                        break
             
-            for i, state in enumerate(traversal_steps):
-                steps.append({
-                    "step": i,
-                    "line": 1,
-                    "code": f"{'BFS' if algorithm == 'bfs' else 'DFS'} Traversal - Step {i + 1}",
-                    "description": f"{'Breadth-First' if algorithm == 'bfs' else 'Depth-First'} Search traversal in progress",
-                    "visualization": {
-                        "type": "graph_with_ds",
-                        "graph": state["graph"],
-                        "data_structure": state["data_structure"]
-                    }
-                })
+            # Default to first node
+            if not start_node:
+                start_node = list(graph_data.keys())[0] if graph_data else None
+            
+            # Generate animated traversal steps
+            if start_node:
+                traversal_steps = simulate_graph_traversal(graph_data, start_node, algorithm)
+                
+                for i, state in enumerate(traversal_steps):
+                    steps.append({
+                        "step": i,
+                        "line": 1,
+                        "code": f"{'BFS' if algorithm == 'bfs' else 'DFS'} Traversal - Step {i + 1}/{len(traversal_steps)}",
+                        "description": f"{'Breadth-First Search' if algorithm == 'bfs' else 'Depth-First Search'} algorithm in progress",
+                        "visualization": {
+                            "type": "graph_with_ds",
+                            "graph": state["graph"],
+                            "data_structure": state["data_structure"]
+                        }
+                    })
+                
+                return steps
+        
+        # If we found a graph but no traversal, just show the graph
+        if graph_data and algorithm == 'generic':
+            nodes = list(graph_data.keys())
+            positions = calculate_graph_positions(nodes, graph_data)
+            
+            steps.append({
+                "step": 0,
+                "line": 1,
+                "code": f"graph = {graph_name}",
+                "description": f"Graph structure with {len(nodes)} nodes",
+                "visualization": {
+                    "type": "graph",
+                    "name": graph_name or "graph",
+                    "nodes": nodes,
+                    "edges": graph_data,
+                    "formatted": format_dict_for_display(graph_data),
+                    "positions": positions
+                }
+            })
             
             return steps
         
-        # Regular analysis (existing code)
+        # ===== PHASE 4: Regular code analysis (arrays, variables, etc.) =====
+        
         for node in ast.walk(tree):
+            
+            # Variable assignments
             if isinstance(node, ast.Assign):
                 for target in node.targets:
                     if isinstance(target, ast.Name):
@@ -346,46 +586,40 @@ def generate_execution_steps(code: str, language: str = "python") -> List[Dict[s
                         var_type = detect_type(node.value)
                         actual_value = safe_eval_value(node.value)
                         
+                        line_code = lines[node.lineno - 1].strip() if node.lineno <= len(lines) else ""
+                        
+                        # Dictionary visualization
                         if var_type == "dict":
                             dict_data = actual_value if isinstance(actual_value, dict) else {}
-                            is_graph = False
-                            if dict_data and isinstance(list(dict_data.values())[0], list):
-                                is_graph = True
                             
                             steps.append({
                                 "step": step_num,
                                 "line": node.lineno,
-                                "code": lines[node.lineno - 1].strip() if node.lineno <= len(lines) else "",
-                                "description": f"Create {'graph' if is_graph else 'dictionary'} '{var_name}' with {len(dict_data)} {'nodes' if is_graph else 'keys'}",
+                                "code": line_code,
+                                "description": f"Create dictionary '{var_name}' with {len(dict_data)} key(s)",
                                 "visualization": {
-                                    "type": "graph" if is_graph else "dict",
+                                    "type": "dict",
                                     "name": var_name,
                                     "data": dict_data,
-                                    "nodes": list(dict_data.keys()) if is_graph else None,
-                                    "edges": dict_data if is_graph else None,
                                     "formatted": format_dict_for_display(dict_data)
                                 }
                             })
-                            
-                            variable_states[var_name] = {
-                                "type": "dict",
-                                "data": dict_data,
-                                "is_graph": is_graph
-                            }
                         
+                        # List/Array visualization
                         elif var_type == "list":
                             initial_data = []
                             if isinstance(node.value, ast.List):
                                 initial_data = [safe_eval_value(elt) for elt in node.value.elts]
                             
-                            is_queue = 'queue' in var_name.lower() or 'q' == var_name.lower()
-                            is_visited = 'visited' in var_name.lower()
+                            # Detect if it's a queue or visited list
+                            is_queue = 'queue' in var_name.lower() or var_name.lower() in ['q', 'qu']
+                            is_visited = 'visited' in var_name.lower() or 'seen' in var_name.lower()
                             
                             steps.append({
                                 "step": step_num,
                                 "line": node.lineno,
-                                "code": lines[node.lineno - 1].strip() if node.lineno <= len(lines) else "",
-                                "description": f"Create {var_type} '{var_name}' {'(queue)' if is_queue else '(visited tracker)' if is_visited else ''} with {len(initial_data)} element(s)",
+                                "code": line_code,
+                                "description": f"Create {var_type} '{var_name}' with {len(initial_data)} element(s)",
                                 "visualization": {
                                     "type": "queue" if is_queue else "visited" if is_visited else "array",
                                     "name": var_name,
@@ -394,20 +628,14 @@ def generate_execution_steps(code: str, language: str = "python") -> List[Dict[s
                                     "highlight": list(range(len(initial_data))) if initial_data else []
                                 }
                             })
-                            
-                            variable_states[var_name] = {
-                                "type": "list",
-                                "data": initial_data,
-                                "is_queue": is_queue,
-                                "is_visited": is_visited
-                            }
                         
+                        # Simple variable
                         else:
                             steps.append({
                                 "step": step_num,
                                 "line": node.lineno,
-                                "code": lines[node.lineno - 1].strip() if node.lineno <= len(lines) else "",
-                                "description": f"Assign {actual_value} to variable '{var_name}'",
+                                "code": line_code,
+                                "description": f"Set {var_name} = {actual_value}",
                                 "visualization": {
                                     "type": "variable",
                                     "name": var_name,
@@ -415,21 +643,18 @@ def generate_execution_steps(code: str, language: str = "python") -> List[Dict[s
                                     "var_type": var_type
                                 }
                             })
-                            
-                            variable_states[var_name] = {
-                                "type": var_type,
-                                "value": actual_value
-                            }
                         
                         step_num += 1
             
+            # List operations (append, pop, etc.)
             elif isinstance(node, ast.Expr) and isinstance(node.value, ast.Call):
                 call = node.value
                 
                 if isinstance(call.func, ast.Attribute):
                     method_name = call.func.attr
                     
-                    if method_name in ['append']:
+                    # Append operation
+                    if method_name == 'append':
                         if isinstance(call.func.value, ast.Name):
                             obj_name = call.func.value.id
                             
@@ -437,36 +662,33 @@ def generate_execution_steps(code: str, language: str = "python") -> List[Dict[s
                                 if call.args:
                                     new_value = safe_eval_value(call.args[0])
                                     current_data = variable_states[obj_name].get("data", [])
+                                    current_data = current_data[:] if current_data else []
                                     current_data.append(new_value)
                                     
-                                    is_queue = variable_states[obj_name].get("is_queue", False)
-                                    is_visited = variable_states[obj_name].get("is_visited", False)
+                                    line_code = lines[node.lineno - 1].strip() if node.lineno <= len(lines) else ""
                                     
-                                    description = f"Append {new_value} to {obj_name}"
-                                    if is_queue:
-                                        description = f"Enqueue {new_value} to queue"
-                                    elif is_visited:
-                                        description = f"Mark {new_value} as visited"
+                                    is_queue = 'queue' in obj_name.lower()
                                     
                                     steps.append({
                                         "step": step_num,
                                         "line": node.lineno,
-                                        "code": lines[node.lineno - 1].strip() if node.lineno <= len(lines) else "",
-                                        "description": description,
+                                        "code": line_code,
+                                        "description": f"{'Enqueue' if is_queue else 'Append'} {new_value} to {obj_name}",
                                         "visualization": {
-                                            "type": "queue" if is_queue else "visited" if is_visited else "array",
+                                            "type": "queue" if is_queue else "array",
                                             "name": obj_name,
-                                            "data": current_data.copy(),
+                                            "data": current_data,
                                             "capacity": len(current_data),
                                             "highlight": [len(current_data) - 1],
-                                            "operation": "enqueue" if is_queue else "mark_visited" if is_visited else "push_back"
+                                            "operation": "enqueue" if is_queue else "push_back"
                                         }
                                     })
                                     
                                     variable_states[obj_name]["data"] = current_data
                                     step_num += 1
                     
-                    elif method_name in ['pop']:
+                    # Pop operation
+                    elif method_name == 'pop':
                         if isinstance(call.func.value, ast.Name):
                             obj_name = call.func.value.id
                             
@@ -474,6 +696,9 @@ def generate_execution_steps(code: str, language: str = "python") -> List[Dict[s
                                 current_data = variable_states[obj_name].get("data", [])
                                 
                                 if current_data:
+                                    current_data = current_data[:]
+                                    
+                                    # Check if pop(0) or pop()
                                     is_dequeue = False
                                     if call.args and isinstance(call.args[0], ast.Constant):
                                         if call.args[0].value == 0:
@@ -487,24 +712,20 @@ def generate_execution_steps(code: str, language: str = "python") -> List[Dict[s
                                         popped_value = current_data[-1]
                                         current_data = current_data[:-1]
                                     
-                                    is_queue = variable_states[obj_name].get("is_queue", False)
-                                    
-                                    description = f"Remove {popped_value} from {obj_name}"
-                                    if is_queue or is_dequeue:
-                                        description = f"Dequeue {popped_value} (process node)"
+                                    line_code = lines[node.lineno - 1].strip() if node.lineno <= len(lines) else ""
                                     
                                     steps.append({
                                         "step": step_num,
                                         "line": node.lineno,
-                                        "code": lines[node.lineno - 1].strip() if node.lineno <= len(lines) else "",
-                                        "description": description,
+                                        "code": line_code,
+                                        "description": f"{'Dequeue' if is_dequeue else 'Pop'} {popped_value} from {obj_name}",
                                         "visualization": {
-                                            "type": "queue" if is_queue else "array",
+                                            "type": "queue" if is_dequeue else "array",
                                             "name": obj_name,
-                                            "data": current_data.copy(),
+                                            "data": current_data,
                                             "capacity": len(current_data) if current_data else 1,
                                             "highlight": [],
-                                            "operation": "dequeue" if (is_queue or is_dequeue) else "pop",
+                                            "operation": "dequeue" if is_dequeue else "pop",
                                             "removed_value": popped_value
                                         }
                                     })
@@ -512,15 +733,16 @@ def generate_execution_steps(code: str, language: str = "python") -> List[Dict[s
                                     variable_states[obj_name]["data"] = current_data
                                     step_num += 1
         
+        # No steps generated? Provide helpful message
         if not steps:
             steps.append({
                 "step": 0,
                 "line": 1,
-                "code": lines[0] if lines else "",
-                "description": "No visualizable operations detected. Try BFS/DFS algorithms!",
+                "code": "# No visualizable operations found",
+                "description": "Try code with: BFS/DFS graph traversal, arrays, queues, or data structures",
                 "visualization": {
                     "type": "none",
-                    "message": "Try: graph = {'A': ['B', 'C']}, queue = ['A'], visited = []"
+                    "message": "💡 Example: graph = {'A': ['B', 'C'], 'B': ['D'], 'C': ['D'], 'D': []}\nqueue = ['A']\nvisited = []"
                 }
             })
     
@@ -529,10 +751,10 @@ def generate_execution_steps(code: str, language: str = "python") -> List[Dict[s
             "step": 0,
             "line": e.lineno or 0,
             "code": "",
-            "description": f"Syntax Error: {str(e)}",
+            "description": f"Syntax Error on line {e.lineno}: {str(e)}",
             "visualization": {
                 "type": "error",
-                "message": f"Fix syntax error: {str(e)}"
+                "message": f"❌ Fix the syntax error: {str(e)}"
             }
         }]
     
@@ -545,11 +767,49 @@ def generate_execution_steps(code: str, language: str = "python") -> List[Dict[s
             "step": 0,
             "line": 0,
             "code": "",
-            "description": f"Error: {str(e)}",
+            "description": f"Analysis Error: {str(e)}",
             "visualization": {
                 "type": "error",
-                "message": f"Error analyzing code: {str(e)}"
+                "message": f"⚠️ Could not analyze code: {str(e)}"
             }
         }]
     
     return steps
+
+
+# ============================================================================
+# TESTING
+# ============================================================================
+
+if __name__ == "__main__":
+    # Test with BFS code
+    test_code = """
+graph = {
+    'A': ['B', 'C'],
+    'B': ['D', 'E'],
+    'C': ['F'],
+    'D': [],
+    'E': ['F'],
+    'F': []
+}
+
+queue = ['A']
+visited = []
+
+while queue:
+    node = queue.pop(0)
+    if node not in visited:
+        visited.append(node)
+        for neighbor in graph[node]:
+            if neighbor not in visited:
+                queue.append(neighbor)
+"""
+    
+    print("Testing BFS visualization...")
+    steps = generate_execution_steps(test_code, "python")
+    print(f"Generated {len(steps)} steps")
+    
+    for i, step in enumerate(steps[:3]):  # Show first 3 steps
+        print(f"\nStep {i}:")
+        print(f"  Description: {step['description']}")
+        print(f"  Viz type: {step['visualization']['type']}")

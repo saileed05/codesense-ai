@@ -1,3 +1,7 @@
+/* ========================================
+   APP LAYOUT - FIXED
+   ======================================== */
+
 * {
   margin: 0;
   padding: 0;
@@ -5,24 +9,35 @@
 }
 
 .App {
-  min-height: 100vh;
-  background: #0d1117;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #010409;
   color: #c9d1d9;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  overflow: hidden;
 }
 
+/* ========================================
+   HEADER
+   ======================================== */
+
 .app-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 1.5rem 2rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  padding: 1rem 2rem;
+  background: #0d1117;
+  border-bottom: 1px solid #30363d;
+  flex-shrink: 0;
 }
 
 .app-header h1 {
-  font-size: 2rem;
-  margin: 0;
-  color: white;
+  font-size: 1.8rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .controls {
@@ -31,97 +46,54 @@
 }
 
 .controls select {
-  padding: 0.6rem 1.2rem;
+  padding: 0.6rem 1rem;
+  background: #21262d;
+  border: 1px solid #30363d;
   border-radius: 8px;
-  border: none;
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
+  color: #c9d1d9;
   cursor: pointer;
-  font-size: 1rem;
-  font-weight: 500;
+  font-size: 0.95rem;
   transition: all 0.3s;
 }
 
 .controls select:hover {
-  background: rgba(255, 255, 255, 0.3);
+  border-color: #58a6ff;
+  background: #30363d;
 }
 
-.controls select option {
-  background: #161b22;
-  color: white;
-}
+/* ========================================
+   ERROR BANNER
+   ======================================== */
 
 .error-banner {
-  background: #da3633;
-  color: white;
-  padding: 1rem 2rem;
-  text-align: center;
-  font-weight: 500;
-}
-
-.main-content {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
   padding: 1rem;
-  min-height: calc(100vh - 150px);
-}
-
-.editor-section,
-.explanation-section {
-  background: #161b22;
-  border: 1px solid #30363d;
-  border-radius: 12px;
-  padding: 1.5rem;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.editor-section h2,
-.explanation-section h2 {
-  color: #58a6ff;
-  margin-bottom: 1rem;
-  font-size: 1.2rem;
-}
-
-.placeholder {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  height: 100%;
+  background: linear-gradient(135deg, rgba(248, 81, 73, 0.2) 0%, rgba(248, 81, 73, 0.1) 100%);
+  border: 1px solid #f85149;
+  border-radius: 8px;
+  margin: 1rem 2rem;
+  color: #f85149;
   text-align: center;
-  color: #8b949e;
-  padding: 2rem;
+  flex-shrink: 0;
 }
 
-.placeholder-icon {
-  font-size: 4rem;
-  margin-bottom: 1rem;
-}
+/* ========================================
+   FEATURE SELECTOR
+   ======================================== */
 
-.placeholder h3 {
-  color: #c9d1d9;
-  margin-bottom: 0.5rem;
-}
-
-/* Feature Selector */
 .feature-selector {
   display: flex;
-  gap: 1rem;
   justify-content: center;
-  padding: 1rem;
-  background: #161b22;
-  border-bottom: 1px solid #30363d;
+  gap: 1rem;
+  padding: 1rem 2rem;
+  flex-shrink: 0;
 }
 
 .feature-selector button {
   padding: 0.8rem 2rem;
   background: #21262d;
   border: 2px solid #30363d;
-  border-radius: 10px;
-  color: #8b949e;
+  border-radius: 8px;
+  color: #c9d1d9;
   cursor: pointer;
   font-size: 1rem;
   font-weight: 600;
@@ -129,108 +101,265 @@
 }
 
 .feature-selector button:hover {
+  background: #30363d;
   border-color: #58a6ff;
-  color: #c9d1d9;
+  transform: translateY(-2px);
 }
 
 .feature-selector button.active {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-color: #764ba2;
   color: white;
-  border-color: transparent;
 }
 
-/* Action Buttons - FIXED */
-.action-buttons {
-  position: fixed;
-  bottom: 2rem;
-  right: 2rem;
+/* ========================================
+   MAIN CONTENT - SIDE BY SIDE
+   ======================================== */
+
+.main-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  padding: 0 2rem;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.editor-section,
+.explanation-section {
   display: flex;
+  flex-direction: column;
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 12px;
+  padding: 1.5rem;
+  overflow: hidden;
+}
+
+.editor-section h2,
+.explanation-section h2 {
+  font-size: 1.2rem;
+  margin-bottom: 1rem;
+  color: #58a6ff;
+  flex-shrink: 0;
+}
+
+/* Editor takes full height */
+.editor-section > div {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Explanation section scrollable */
+.explanation-section {
+  overflow-y: auto;
+}
+
+/* ========================================
+   PLACEHOLDER STATES
+   ======================================== */
+
+.placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  text-align: center;
+  padding: 3rem;
+}
+
+.placeholder-icon {
+  font-size: 5rem;
+  margin-bottom: 1rem;
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-20px); }
+}
+
+.placeholder h3 {
+  color: #58a6ff;
+  margin-bottom: 0.5rem;
+  font-size: 1.5rem;
+}
+
+.placeholder p {
+  color: #8b949e;
+  font-size: 1.1rem;
+}
+
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 5px solid #30363d;
+  border-top-color: #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ========================================
+   ACTION BUTTONS
+   ======================================== */
+
+.action-buttons {
+  display: flex;
+  justify-content: center;
   gap: 1rem;
-  z-index: 1000;
+  padding: 1.5rem 2rem;
+  border-top: 1px solid #30363d;
+  background: #0d1117;
+  flex-shrink: 0;
 }
 
 .explain-btn,
-.debug-btn {
+.bugs-btn,
+.visual-btn {
   padding: 1rem 2.5rem;
-  font-size: 1.2rem;
-  font-weight: bold;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   border: none;
-  border-radius: 50px;
+  border-radius: 10px;
   color: white;
+  font-size: 1.1rem;
+  font-weight: bold;
   cursor: pointer;
   transition: all 0.3s;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
 }
 
-.explain-btn {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  box-shadow: 0 8px 30px rgba(102, 126, 234, 0.4);
-}
-
-.explain-btn:hover:not(:disabled) {
+.explain-btn:hover,
+.bugs-btn:hover,
+.visual-btn:hover {
   transform: translateY(-3px);
-  box-shadow: 0 12px 40px rgba(102, 126, 234, 0.6);
-}
-
-.debug-btn {
-  background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
-  box-shadow: 0 8px 30px rgba(231, 76, 60, 0.4);
-}
-
-.debug-btn:hover:not(:disabled) {
-  transform: translateY(-3px);
-  box-shadow: 0 12px 40px rgba(231, 76, 60, 0.6);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
 }
 
 .explain-btn:disabled,
-.debug-btn:disabled {
-  opacity: 0.7;
+.bugs-btn:disabled,
+.visual-btn:disabled {
+  opacity: 0.6;
   cursor: not-allowed;
-  animation: pulse 1.5s infinite;
+  transform: none;
 }
 
-@keyframes pulse {
-  0%, 100% { opacity: 0.7; }
-  50% { opacity: 1; }
+.bugs-btn {
+  background: linear-gradient(135deg, #f85149 0%, #da3633 100%);
+  box-shadow: 0 4px 15px rgba(248, 81, 73, 0.4);
 }
 
-/* Responsive */
-@media (max-width: 1024px) {
+.bugs-btn:hover {
+  box-shadow: 0 6px 20px rgba(248, 81, 73, 0.6);
+}
+
+.visual-btn {
+  background: linear-gradient(135deg, #238636 0%, #2ea043 100%);
+  box-shadow: 0 4px 15px rgba(35, 134, 54, 0.4);
+}
+
+.visual-btn:hover {
+  box-shadow: 0 6px 20px rgba(35, 134, 54, 0.6);
+}
+
+/* ========================================
+   VISUAL EXPLAINER OVERRIDES
+   ======================================== */
+
+.visual-explainer-compact {
+  height: 100%;
+  overflow-y: auto;
+}
+
+/* ========================================
+   RESPONSIVE
+   ======================================== */
+
+@media (max-width: 1200px) {
   .main-content {
     grid-template-columns: 1fr;
+    grid-template-rows: 1fr 1fr;
+    padding: 1rem;
   }
   
   .app-header {
     flex-direction: column;
     gap: 1rem;
-    text-align: center;
+    padding: 1rem;
+  }
+  
+  .action-buttons {
+    flex-wrap: wrap;
+    padding: 1rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .app-header h1 {
+    font-size: 1.5rem;
+  }
+  
+  .controls {
+    flex-direction: column;
+    width: 100%;
+  }
+  
+  .controls select {
+    width: 100%;
+  }
+  
+  .feature-selector {
+    flex-direction: column;
+    padding: 1rem;
+  }
+  
+  .feature-selector button {
+    width: 100%;
+  }
+  
+  .main-content {
+    padding: 0.5rem;
   }
   
   .action-buttons {
     flex-direction: column;
-    bottom: 1rem;
-    right: 1rem;
   }
   
-  .explain-btn, 
-  .debug-btn {
-    padding: 0.8rem 1.5rem;
-    font-size: 1rem;
+  .explain-btn,
+  .bugs-btn,
+  .visual-btn {
+    width: 100%;
   }
 }
-/* Add to App.css */
-.explanation-section,
-.editor-section {
-  padding-bottom: 120px; /* Space for buttons */
+
+/* ========================================
+   SCROLLBAR STYLING
+   ======================================== */
+
+.explanation-section::-webkit-scrollbar,
+.visual-explainer-compact::-webkit-scrollbar {
+  width: 8px;
 }
 
-/* Or make buttons smaller on scroll */
-.action-buttons {
-  bottom: 1rem;
-  right: 1rem;
+.explanation-section::-webkit-scrollbar-track,
+.visual-explainer-compact::-webkit-scrollbar-track {
+  background: #0d1117;
 }
 
-.explain-btn, 
-.debug-btn {
-  padding: 0.75rem 1.5rem;
-  font-size: 1rem;
+.explanation-section::-webkit-scrollbar-thumb,
+.visual-explainer-compact::-webkit-scrollbar-thumb {
+  background: #30363d;
+  border-radius: 4px;
+}
+
+.explanation-section::-webkit-scrollbar-thumb:hover,
+.visual-explainer-compact::-webkit-scrollbar-thumb:hover {
+  background: #484f58;
 }

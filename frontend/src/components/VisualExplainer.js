@@ -1,114 +1,81 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import ArrayVisualizer from './visualizations/ArrayVisualizer';
 import GraphVisualizer from './visualizations/GraphVisualizer';
 import QueueVisualizer from './visualizations/QueueVisualizer';
 import GraphWithDSVisualizer from './visualizations/GraphWithDSVisualizer';
+import StackVisualizer from './visualizations/StackVisualizer';
 import './VisualExplainer.css';
 
-const VisualExplainer = ({ code, language, apiUrl }) => {
+const VisualExplainer = ({ code, language, apiUrl, preloadedSteps, currentStep }) => {
   const [steps, setSteps] = useState([]);
-  const [currentStep, setCurrentStep] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [playbackSpeed, setPlaybackSpeed] = useState(2500);
+  const [renderKey, setRenderKey] = useState(0);
+  const containerRef = useRef(null);
 
-  const API_URL = apiUrl || process.env.REACT_APP_API_URL || 'http://localhost:8000';
-
-  const fetchVisualization = async () => {
-    if (!code.trim()) {
-      setError('Please enter some code first!');
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-    
-    try {
-      console.log('🎬 Fetching visualization from:', `${API_URL}/visualize`);
-      
-      const response = await fetch(`${API_URL}/visualize`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code, language, level: 'beginner' })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || `Server error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log('✅ Received steps:', data.steps?.length || 0);
-      
-      setSteps(data.steps || []);
-      setCurrentStep(0);
-      setIsPlaying(false);
-      
-    } catch (err) {
-      console.error('❌ Visualization error:', err);
-      setError(`Failed to generate visualization: ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const nextStep = () => {
-    if (currentStep < steps.length - 1) {
-      setCurrentStep(prev => prev + 1);
-    } else {
-      setIsPlaying(false);
-    }
-  };
-
-  const prevStep = () => {
-    if (currentStep > 0) {
-      setCurrentStep(prev => prev - 1);
-    }
-  };
-
-  const reset = () => {
-    setCurrentStep(0);
-    setIsPlaying(false);
-  };
-
-  const togglePlay = () => {
-    if (currentStep === steps.length - 1) {
-      setCurrentStep(0);
-    }
-    setIsPlaying(!isPlaying);
-  };
-
+  // FIX 1: Update steps when preloadedSteps changes
   useEffect(() => {
-    let interval;
-    if (isPlaying && currentStep < steps.length - 1) {
-      interval = setInterval(nextStep, playbackSpeed);
+    if (preloadedSteps && preloadedSteps.length > 0) {
+      console.log('📊 Loading steps:', preloadedSteps.length);
+      setSteps(preloadedSteps);
+      setRenderKey(prev => prev + 1);
     }
-    return () => clearInterval(interval);
-  }, [isPlaying, currentStep, steps, playbackSpeed]);
+  }, [preloadedSteps]);
+
+  // FIX 2: Force re-render when currentStep changes AND auto-scroll
+  useEffect(() => {
+    console.log('🔄 Current step changed to:', currentStep);
+    setRenderKey(prev => prev + 1);
+    
+    // Auto-scroll to top of visualization
+    if (containerRef.current) {
+      containerRef.current.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      });
+    }
+  }, [currentStep]);
+
+  // FIX 3: Debug current step data
+  useEffect(() => {
+    if (steps.length > 0 && currentStep < steps.length) {
+      const stepData = steps[currentStep];
+      console.log('📍 Step', currentStep, 'data:', stepData);
+    }
+  }, [steps, currentStep]);
 
   const renderVisualization = (viz) => {
-    if (!viz) return null;
+    if (!viz) {
+      return (
+        <div className="no-visualization">
+          <p>ℹ️ No visualization data for this step</p>
+        </div>
+      );
+    }
+
+    // FIX 4: Add key prop to force re-mount on step change
+    const vizKey = `${viz.type}-${currentStep}-${renderKey}`;
 
     switch (viz.type) {
       case 'graph_with_ds':
-        return <GraphWithDSVisualizer data={viz} />;
+        return <GraphWithDSVisualizer key={vizKey} data={viz} />;
       
       case 'array':
-        return <ArrayVisualizer data={viz} />;
+        return <ArrayVisualizer key={vizKey} data={viz} />;
       
       case 'queue':
-        return <QueueVisualizer data={viz} />;
+        return <QueueVisualizer key={vizKey} data={viz} />;
+
+      case 'stack':
+        return <StackVisualizer key={vizKey} data={viz} />;
       
       case 'visited':
-        return <QueueVisualizer data={viz} />;
+        return <QueueVisualizer key={vizKey} data={viz} />;
       
       case 'graph':
-        return <GraphVisualizer data={viz} />;
+        return <GraphVisualizer key={vizKey} data={viz} />;
       
       case 'dict':
         return (
-          <div className="dict-display">
+          <div className="dict-display" key={vizKey}>
             <div className="dict-header">
               <span className="dict-name">{viz.name}</span>
               <span className="dict-count">{Object.keys(viz.data || {}).length} keys</span>
@@ -125,7 +92,7 @@ const VisualExplainer = ({ code, language, apiUrl }) => {
       
       case 'variable':
         return (
-          <div className="variable-display">
+          <div className="variable-display" key={vizKey}>
             <div className="var-name">{viz.name}</div>
             <div className="var-value">{viz.value}</div>
             <div className="var-type">{viz.var_type}</div>
@@ -134,115 +101,63 @@ const VisualExplainer = ({ code, language, apiUrl }) => {
       
       case 'none':
         return (
-          <div className="no-visualization">
+          <div className="no-visualization" key={vizKey}>
             <p>ℹ️ {viz.message || 'No visualization available for this step'}</p>
           </div>
         );
       
       case 'error':
         return (
-          <div className="viz-error">
+          <div className="viz-error" key={vizKey}>
             <p>⚠️ {viz.message}</p>
           </div>
         );
       
       default:
-        return <div className="unknown-viz">Unknown visualization type: {viz.type}</div>;
+        return <div className="unknown-viz" key={vizKey}>Unknown visualization type: {viz.type}</div>;
     }
   };
 
-  const currentStepData = steps[currentStep];
-
-  if (steps.length === 0 && !loading && !error) {
+  if (steps.length === 0) {
     return (
       <div className="visual-empty">
-        <div className="empty-icon">🎬</div>
-        <h3>Ready to see your code in action?</h3>
-        <p>Watch variables, arrays, and data structures come to life</p>
-        <button onClick={fetchVisualization} className="generate-btn">
-          🚀 Generate Visual Execution
-        </button>
+        <div className="loading-spinner">
+          <div className="spinner"></div>
+        </div>
+        <h3>Loading visualization...</h3>
+        <p>Preparing step-by-step execution</p>
       </div>
     );
   }
 
-  if (loading) {
-    return (
-      <div className="visual-loading">
-        <div className="spinner"></div>
-        <p>🔄 Analyzing code and generating visualization...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="visual-error">
-        <div className="error-icon">⚠️</div>
-        <h3>Visualization Failed</h3>
-        <p>{error}</p>
-        <button onClick={fetchVisualization} className="retry-btn">
-          🔄 Try Again
-        </button>
-      </div>
-    );
-  }
+  // FIX 5: Safely get current step data with bounds checking
+  const currentStepData = steps[currentStep] || steps[0];
+  
+  // FIX 6: Debug info - remove this after testing
+  console.log('🎯 Rendering step', currentStep, 'of', steps.length, 'visualization:', currentStepData?.visualization?.type);
 
   return (
-    <div className="visual-explainer">
-      <div className="controls-bar">
-        <div className="playback-controls">
-          <button onClick={reset} className="control-btn reset-btn" title="Reset">
-            ⏮️
-          </button>
-          <button onClick={prevStep} disabled={currentStep === 0} className="control-btn" title="Previous">
-            ⏪
-          </button>
-          <button onClick={togglePlay} className="control-btn play-btn" title={isPlaying ? 'Pause' : 'Play'}>
-            {isPlaying ? '⏸️' : '▶️'}
-          </button>
-          <button onClick={nextStep} disabled={currentStep === steps.length - 1} className="control-btn" title="Next">
-            ⏩
-          </button>
-        </div>
-
-        <div className="speed-control">
-          <label>Speed:</label>
-          <select value={playbackSpeed} onChange={(e) => setPlaybackSpeed(Number(e.target.value))}>
-            <option value={2500}>0.5x</option>
-            <option value={1500}>1x</option>
-            <option value={1000}>1.5x</option>
-            <option value={500}>2x</option>
-          </select>
-        </div>
+    <div className="visual-explainer-simple" ref={containerRef}>
+      {/* FIX 7: Add step counter for debugging */}
+      <div style={{
+        position: 'sticky',
+        top: 0,
+        background: '#010409',
+        padding: '0.5rem',
+        borderBottom: '1px solid #30363d',
+        zIndex: 100,
+        fontSize: '0.9rem',
+        color: '#8b949e'
+      }}>
+        Step {currentStep + 1} of {steps.length}
+        {currentStepData?.line && ` | Line: ${currentStepData.line}`}
       </div>
 
-      <div className="progress-section">
-        <div className="progress-info">
-          <span className="step-counter">Step {currentStep + 1} of {steps.length}</span>
-          <span className="line-info">Line {currentStepData?.line || 0}</span>
-        </div>
-        <div className="progress-bar">
-          <div className="progress-fill" style={{ width: `${((currentStep + 1) / steps.length) * 100}%` }} />
-        </div>
-      </div>
-
-      <div className="visual-content">
-        <div className="code-display">
-          <div className="code-label">Current Line:</div>
-          <pre className="code-line"><code>{currentStepData?.code || ''}</code></pre>
-          <div className="code-description">{currentStepData?.description || ''}</div>
-        </div>
-
-        <div className="visualization-area">
-          <div className="viz-label">Memory & Variables:</div>
-          <div className="viz-container">
-            {currentStepData?.visualization ? 
-              renderVisualization(currentStepData.visualization) : 
-              <div className="no-viz">No visualization for this step</div>
-            }
-          </div>
-        </div>
+      <div className="viz-container">
+        {currentStepData?.visualization ? 
+          renderVisualization(currentStepData.visualization) : 
+          <div className="no-viz">No visualization for this step</div>
+        }
       </div>
 
       <div className="legend">
@@ -261,12 +176,6 @@ const VisualExplainer = ({ code, language, apiUrl }) => {
             <span>Empty slot</span>
           </div>
         </div>
-      </div>
-
-      <div className="actions">
-        <button onClick={fetchVisualization} className="regenerate-btn">
-          🔄 Regenerate Visualization
-        </button>
       </div>
     </div>
   );

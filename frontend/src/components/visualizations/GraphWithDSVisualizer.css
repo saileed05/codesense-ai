@@ -467,3 +467,193 @@
     font-size: 1rem;
   }
 }
+/* Screen reader only utility class */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* FIXED: Focus styles for keyboard navigation */
+.graph-node:focus {
+  outline: 3px solid #fbbf24;
+  outline-offset: 5px;
+  border-radius: 50%;
+}
+
+.graph-node:focus-visible {
+  outline: 4px solid #fbbf24;
+  outline-offset: 8px;
+}
+
+/* FIXED: High contrast mode support */
+@media (prefers-contrast: high) {
+  .graph-edge {
+    stroke-width: 5px !important;
+  }
+  
+  .node-circle {
+    stroke-width: 5px !important;
+  }
+  
+  .node-label {
+    stroke-width: 4px !important;
+  }
+}
+
+/* FIXED: Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .node-glow,
+  .glow-effect,
+  .graph-edge {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* Data table alternative styling */
+.graph-data-table {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+}
+
+.graph-data-table summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: #58a6ff;
+  padding: 0.5rem;
+  user-select: none;
+}
+
+.graph-data-table summary:hover {
+  color: #79c0ff;
+}
+
+.graph-data-table table {
+  width: 100%;
+  margin-top: 1rem;
+  border-collapse: collapse;
+}
+
+.graph-data-table th,
+.graph-data-table td {
+  padding: 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid #30363d;
+}
+
+.graph-data-table th {
+  background: #0d1117;
+  font-weight: 600;
+  color: #58a6ff;
+}
+
+.graph-data-table tbody tr:hover {
+  background: #161b22;
+}
+
+/* Improved legend with better visual hierarchy */
+.graph-legend {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+}
+
+.graph-legend .legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  background: #0d1117;
+  border-radius: 6px;
+  border: 1px solid #30363d;
+}
+
+.graph-legend .legend-item:hover {
+  border-color: #58a6ff;
+}
+
+.graph-legend .legend-item svg {
+  flex-shrink: 0;
+}
+
+.graph-legend .legend-item span {
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: #c9d1d9;
+}
+
+/* Print styles for better accessibility */
+@media print {
+  .graph-svg {
+    background: white;
+  }
+  
+  .graph-edge {
+    stroke: black !important;
+    stroke-width: 2px !important;
+  }
+  
+  .node-circle {
+    stroke: black !important;
+  }
+  
+  .node-label {
+    fill: black !important;
+    stroke: white !important;
+  }
+  
+  /* Show data table in print */
+  .graph-data-table[open] {
+    display: block;
+    page-break-before: always;
+  }
+}
+
+/* Better tooltips for nodes */
+.graph-node {
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.graph-node:hover {
+  transform: scale(1.05);
+}
+
+/* Announce changes to assistive tech */
+[role="status"][aria-live] {
+  padding: 0.5rem;
+  margin-bottom: 1rem;
+  background: #161b22;
+  border-left: 3px solid #58a6ff;
+  border-radius: 4px;
+}
+
+/* Pattern visibility improvements */
+pattern rect,
+pattern circle,
+pattern path {
+  opacity: 0.6;
+}
+
+@media (prefers-contrast: high) {
+  pattern rect,
+  pattern circle,
+  pattern path {
+    opacity: 1;
+  }
+}

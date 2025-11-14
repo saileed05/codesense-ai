@@ -1,0 +1,296 @@
+/* ========================================
+   STACK VISUALIZER STYLES
+   ======================================== */
+
+.stack-visualizer {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+  animation: slideIn 0.5s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ========================================
+   HEADER
+   ======================================== */
+
+.stack-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+}
+
+.stack-name {
+  color: #58a6ff;
+  font-family: 'Consolas', monospace;
+  font-size: 1.3rem;
+  font-weight: bold;
+}
+
+.stack-operation {
+  color: #f0883e;
+  font-size: 0.9rem;
+  padding: 0.3rem 0.8rem;
+  background: rgba(240, 136, 62, 0.1);
+  border-radius: 4px;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+/* ========================================
+   STACK CONTAINER (VERTICAL)
+   ======================================== */
+
+.stack-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 1.5rem;
+  background: #161b22;
+  border-radius: 8px;
+  min-height: 200px;
+}
+
+.stack-label {
+  color: #8b949e;
+  font-size: 0.85rem;
+  font-weight: bold;
+  white-space: nowrap;
+  letter-spacing: 1px;
+}
+
+.stack-label.top {
+  color: #3fb950;
+  font-size: 1rem;
+}
+
+.stack-label.bottom {
+  color: #f85149;
+  font-size: 0.9rem;
+}
+
+.stack-elements {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+  max-width: 300px;
+  align-items: stretch;
+}
+
+.empty-stack {
+  color: #8b949e;
+  font-style: italic;
+  padding: 2rem;
+  text-align: center;
+}
+
+/* ========================================
+   STACK BOXES (VERTICAL LAYOUT)
+   ======================================== */
+
+.stack-box {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 80px;
+  background: #21262d;
+  border: 3px solid #30363d;
+  border-radius: 8px;
+  transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: boxAppear 0.5s ease-out;
+}
+
+@keyframes boxAppear {
+  from {
+    opacity: 0;
+    transform: scaleY(0);
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+
+.stack-box.top-item {
+  border-color: #3fb950;
+  box-shadow: 0 0 15px rgba(63, 185, 80, 0.3);
+}
+
+.stack-box.highlighted {
+  background: linear-gradient(135deg, #a371f7 0%, #d2a8ff 100%);
+  border-color: #d2a8ff;
+  transform: scale(1.05);
+  box-shadow: 0 0 20px rgba(163, 113, 247, 0.6);
+  z-index: 10;
+}
+
+.stack-value {
+  font-size: 1.5rem;
+  font-weight: bold;
+  font-family: 'Consolas', monospace;
+  color: #c9d1d9;
+}
+
+.stack-box.highlighted .stack-value {
+  color: white;
+}
+
+.position-badge {
+  position: absolute;
+  right: -60px;
+  font-size: 0.7rem;
+  color: #3fb950;
+  font-weight: bold;
+  background: rgba(63, 185, 80, 0.1);
+  padding: 0.3rem 0.6rem;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.push-indicator {
+  position: absolute;
+  top: -35px;
+  font-size: 1.2rem;
+  color: #3fb950;
+  animation: bounceDown 1s ease-in-out infinite;
+  font-weight: bold;
+}
+
+@keyframes bounceDown {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+.glow-effect {
+  position: absolute;
+  inset: -5px;
+  background: radial-gradient(circle, rgba(163, 113, 247, 0.4) 0%, transparent 70%);
+  border-radius: 8px;
+  animation: glow 2s ease-in-out infinite;
+  pointer-events: none;
+  z-index: -1;
+}
+
+@keyframes glow {
+  0%, 100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
+/* ========================================
+   POP INDICATOR
+   ======================================== */
+
+.pop-indicator {
+  text-align: center;
+  padding: 0.8rem;
+  background: linear-gradient(135deg, rgba(63, 185, 80, 0.2) 0%, rgba(63, 185, 80, 0.1) 100%);
+  border: 2px solid #3fb950;
+  border-radius: 8px;
+  color: #3fb950;
+  font-weight: bold;
+  animation: popAlert 0.5s ease-out;
+}
+
+@keyframes popAlert {
+  0% {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* ========================================
+   METADATA
+   ======================================== */
+
+.stack-metadata {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  padding: 0.8rem;
+  background: #0d1117;
+  border-radius: 6px;
+}
+
+.metadata-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.metadata-label {
+  color: #8b949e;
+  font-size: 0.9rem;
+}
+
+.metadata-value {
+  color: #58a6ff;
+  font-family: 'Consolas', monospace;
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+
+/* ========================================
+   RESPONSIVE
+   ======================================== */
+
+@media (max-width: 768px) {
+  .stack-elements {
+    max-width: 250px;
+  }
+
+  .stack-box {
+    height: 70px;
+  }
+
+  .stack-value {
+    font-size: 1.3rem;
+  }
+
+  .position-badge {
+    right: -50px;
+    font-size: 0.65rem;
+  }
+
+  .stack-metadata {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+}
