@@ -53,7 +53,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],  # Allow all headers
-    expose_headers=["*"]  # Expose all headers
+    expose_headers=["*"], # Expose all headers
     max_age=3600  
 )
 
