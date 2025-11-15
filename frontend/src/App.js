@@ -4,7 +4,7 @@ import CodeExecutionPanel from './components/CodeExecutionPanel';
 import { ExplanationOverlay, StatusBar } from './components/ExplanationOverlay';
 import './NewApp.css';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const API_URL = 'https://codesense-ai-production.up.railway.app';
 
 function App() {
   // Code and settings state
