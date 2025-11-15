@@ -56,16 +56,16 @@ MAX_CODE_LENGTH = int(os.getenv("MAX_CODE_LENGTH", "10000"))
 ALLOWED_LANGUAGES = ["python", "javascript", "java", "cpp", "typescript", "go", "c", "ruby"]
 ALLOWED_LEVELS = ["eli5", "beginner", "intermediate", "expert"]
 
-# Retry configuration - REDUCED for faster response
-MAX_RETRIES = 2  # Reduced from 3
-BASE_DELAY = 1  # Reduced from 2
-MAX_DELAY = 30  # Reduced from 60
+# Retry configuration
+MAX_RETRIES = 3
+BASE_DELAY = 2  # seconds
+MAX_DELAY = 60  # seconds
 
 if API_KEY:
     try:
         genai.configure(api_key=API_KEY)
-        model = genai.GenerativeModel('models/gemini-2.5-flash')  # FASTER MODEL
-        logger.info("✅ Gemini API configured successfully with Flash model")
+        model = genai.GenerativeModel('models/gemini-2.5-flash')
+        logger.info("✅ Gemini API configured successfully")
     except Exception as e:
         logger.error(f"❌ Gemini API configuration failed: {e}")
         model = None
@@ -169,7 +169,7 @@ async def root():
             "Input validation",
             "Response caching",
             "Async AI calls with timeout",
-            "Universal code visualization (BFS, DFS, Sorting, Arrays)"
+            "Universal code visualization (BFS, DFS, Sorting, Arrays, Stacks)"
         ],
         "endpoints": {
             "/": "API information",
@@ -244,27 +244,16 @@ def parse_ai_json_response(text: str) -> dict:
             detail=f"Failed to parse AI response: {str(e)}"
         )
 
-async def call_gemini_with_timeout(prompt: str, timeout: int = 15):  # REDUCED from 30s to 15s
-    """Call Gemini API with timeout protection - OPTIMIZED"""
+async def call_gemini_with_timeout(prompt: str, timeout: int = 30):
+    """Call Gemini API with timeout protection"""
     try:
         loop = asyncio.get_event_loop()
-        
-        # CRITICAL: Set shorter generation config for faster response
-        generation_config = {
-            "temperature": 0.3,  # Lower temp = faster, more focused
-            "top_p": 0.8,
-            "top_k": 20,
-            "max_output_tokens": 2048,  # Limit output size
-        }
         
         # Run in executor with timeout
         result = await asyncio.wait_for(
             loop.run_in_executor(
                 None, 
-                lambda: model.generate_content(
-                    prompt,
-                    generation_config=generation_config
-                )
+                lambda: model.generate_content(prompt)
             ),
             timeout=timeout
         )
@@ -279,7 +268,7 @@ async def call_gemini_with_timeout(prompt: str, timeout: int = 15):  # REDUCED f
 @app.post("/explain")
 @limiter.limit("15/minute")
 async def explain_code(request: Request, code_request: CodeRequest):
-    """Explain code with AI-powered analysis (with caching) - OPTIMIZED"""
+    """Explain code with AI-powered analysis (with caching)"""
     
     if not API_KEY or not model:
         logger.error("API key not configured")
@@ -302,34 +291,45 @@ async def explain_code(request: Request, code_request: CodeRequest):
     try:
         start_time = time.time()
         
-        # SHORTER, MORE FOCUSED PROMPT
-        prompt = f"""Explain this {code_request.language} code at {code_request.level} level. Be concise.
+        prompt = f"""You are an expert coding instructor. Explain this {code_request.language} code at a {code_request.level} level.
 
 CODE:
 ```{code_request.language}
 {code_request.code}
 ```
 
-Return JSON (no markdown):
+Return a JSON response with this EXACT structure (no additional text):
 {{
-  "summary": "Brief 1-2 sentence overview",
+  "summary": "Brief 2-3 sentence overview",
   "line_by_line": [
-    {{"line_number": 1, "code": "line", "explanation": "short explanation"}}
+    {{
+      "line_number": 1,
+      "code": "actual code line",
+      "explanation": "clear explanation"
+    }}
   ],
   "key_concepts": [
-    {{"concept": "Name", "explanation": "Brief why it matters"}}
+    {{
+      "concept": "Concept Name",
+      "explanation": "Why it matters"
+    }}
   ],
   "complexity": {{
     "time": "O(n)",
     "space": "O(1)",
-    "explanation": "One sentence"
+    "explanation": "Brief reasoning"
   }}
 }}
 
-Keep explanations SHORT and FOCUSED."""
+Level guidelines for {code_request.level}:
+- eli5: Use simple analogies (cookies, toys, games), no jargon
+- beginner: Clear explanations, define technical terms
+- intermediate: Assume basic programming knowledge
+- expert: Focus on performance, patterns, edge cases
+"""
 
-        logger.debug("Calling Gemini API...")
-        response = await call_gemini_with_timeout(prompt, timeout=15)  # 15s timeout
+        logger.debug("Calling Gemini API with timeout...")
+        response = await call_gemini_with_timeout(prompt, timeout=30)
         logger.debug("Gemini API responded")
         
         explanation = parse_ai_json_response(response.text)
@@ -338,7 +338,7 @@ Keep explanations SHORT and FOCUSED."""
         cache_response(cache_key, explanation)
         
         elapsed = time.time() - start_time
-        logger.info(f"✅ Explanation generated in {elapsed:.2f}s and cached")
+        logger.info(f"✅ Successfully generated explanation in {elapsed:.2f}s and cached")
         
         return explanation
         
@@ -354,7 +354,7 @@ Keep explanations SHORT and FOCUSED."""
 @app.post("/detect-bugs")
 @limiter.limit("15/minute")
 async def detect_bugs(request: Request, code_request: CodeRequest):
-    """Detect potential bugs and suggest fixes (with caching) - OPTIMIZED"""
+    """Detect potential bugs and suggest fixes (with caching)"""
     
     if not API_KEY or not model:
         raise HTTPException(
@@ -375,8 +375,7 @@ async def detect_bugs(request: Request, code_request: CodeRequest):
     try:
         start_time = time.time()
         
-        # SHORTER PROMPT
-        prompt = f"""Analyze this {code_request.language} code for bugs. Be concise.
+        prompt = f"""Analyze this {code_request.language} code for bugs, issues, and improvements.
 
 CODE:
 ```{code_request.language}
@@ -386,21 +385,46 @@ CODE:
 Return JSON (no markdown):
 {{
   "bugs_found": [
-    {{"severity": "high|medium|low", "line": 3, "issue": "Brief", "explanation": "Short", "fix": "How to fix"}}
+    {{
+      "severity": "high|medium|low",
+      "line": 3,
+      "issue": "Brief description",
+      "explanation": "Why this is a problem",
+      "fix": "How to fix it"
+    }}
   ],
   "code_smells": [
-    {{"type": "performance|readability", "line": 5, "issue": "What", "suggestion": "How"}}
+    {{
+      "type": "performance|readability|maintainability",
+      "line": 5,
+      "issue": "What's wrong",
+      "suggestion": "How to improve"
+    }}
   ],
   "improvements": [
-    {{"category": "performance|security", "suggestion": "Brief", "example": "optional"}}
+    {{
+      "category": "readability|performance|security",
+      "suggestion": "General improvement",
+      "example": "Code example if applicable"
+    }}
   ],
-  "refactored_code": "Improved version (optional, only if needed)"
+  "refactored_code": "Improved version of the code (optional)"
 }}
 
-Be CONCISE. Return empty arrays if no issues."""
+Look for:
+- Syntax/logic errors
+- Performance issues
+- Security vulnerabilities
+- Missing error handling
+- Edge cases
+- Code smells
+- Best practices violations
+
+Return empty arrays if no issues found.
+"""
 
         logger.debug("Calling Gemini API for bug detection...")
-        response = await call_gemini_with_timeout(prompt, timeout=15)  # 15s timeout
+        response = await call_gemini_with_timeout(prompt, timeout=30)
         bug_analysis = parse_ai_json_response(response.text)
         
         # Cache the response
@@ -424,8 +448,8 @@ Be CONCISE. Return empty arrays if no issues."""
 @limiter.limit("15/minute")
 async def visualize_code(request: Request, code_request: CodeRequest):
     """
-    Hybrid visualization - OPTIMIZED FOR SPEED
-    Uses code_analyzer (fast) first, falls back to universal_visualizer
+    ✅ FIXED: Use code_analyzer as PRIMARY (supports stacks correctly!)
+    Fall back to universal_visualizer only if code_analyzer fails
     """
     
     logger.info(f"🎬 Visualization request - Language: {code_request.language}")
@@ -437,21 +461,23 @@ async def visualize_code(request: Request, code_request: CodeRequest):
         )
     
     try:
-        # STEP 1: Try code_analyzer FIRST (it's faster, no execution)
-        logger.debug("Attempting static analysis (code_analyzer)...")
+        # ✅ ALWAYS try code_analyzer FIRST (it handles stacks, arrays, graphs correctly!)
+        logger.info("🔍 Attempting static analysis with code_analyzer...")
         
         try:
-            from code_analyzer import generate_execution_steps
             static_steps = generate_execution_steps(code_request.code, code_request.language)
             
-            # Check if we got meaningful results
+            # ✅ Use code_analyzer if it generated ANY valid steps (not just errors)
             if static_steps and len(static_steps) > 0:
                 first_step = static_steps[0]
                 viz_type = first_step.get('visualization', {}).get('type', 'none')
                 
-                # code_analyzer is good for: graphs, BFS, DFS, queues, arrays
-                if viz_type in ['graph', 'graph_with_ds', 'queue', 'dict', 'array', 'stack']:
-                    logger.info(f"✅ Using code_analyzer (detected {viz_type})")
+                logger.info(f"📊 code_analyzer detected type: {viz_type}")
+                
+                # ✅ CRITICAL FIX: Accept ANY type except 'none' and 'error'
+                # This includes: 'stack', 'array', 'queue', 'graph', 'dict', etc.
+                if viz_type not in ['none', 'error']:
+                    logger.info(f"✅ Using code_analyzer (detected {viz_type} with {len(static_steps)} steps)")
                     return {
                         "success": True,
                         "steps": static_steps,
@@ -459,24 +485,21 @@ async def visualize_code(request: Request, code_request: CodeRequest):
                         "language": code_request.language,
                         "analyzer": "code_analyzer"
                     }
+                else:
+                    logger.info(f"⚠️ code_analyzer returned {viz_type}, trying universal_visualizer...")
+            else:
+                logger.warning("⚠️ code_analyzer returned empty steps")
+                
         except Exception as e:
-            logger.debug(f"code_analyzer failed: {e}")
+            logger.warning(f"⚠️ code_analyzer failed: {e}")
+            import traceback
+            logger.debug("Full traceback:")
+            logger.debug(traceback.format_exc())
         
-        # STEP 2: Fall back to universal_visualizer (slower, but handles more cases)
-        logger.debug("Using universal_visualizer...")
-        
-        # RUN IN BACKGROUND THREAD to avoid blocking
-        loop = asyncio.get_event_loop()
-        
-        def run_visualizer():
-            tracer = UniversalCodeTracer(code_request.code)
-            return tracer.execute(max_steps=50)  # Limit to 50 steps for speed
-        
-        # Run with 10 second timeout
-        result = await asyncio.wait_for(
-            loop.run_in_executor(None, run_visualizer),
-            timeout=10.0
-        )
+        # Fall back to universal_visualizer only if code_analyzer failed or returned none/error
+        logger.info("🔄 Falling back to universal_visualizer...")
+        tracer = UniversalCodeTracer(code_request.code)
+        result = tracer.execute(max_steps=100)
         
         if result['success']:
             logger.info(f"✅ Generated {result['total_steps']} steps (universal_visualizer)")
@@ -499,14 +522,8 @@ async def visualize_code(request: Request, code_request: CodeRequest):
                 "analyzer": "universal_visualizer"
             }
         
-    except asyncio.TimeoutError:
-        logger.error("Visualization timeout after 10s")
-        raise HTTPException(
-            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-            detail="Visualization took too long (>10s). Try simpler code or fewer iterations."
-        )
     except Exception as e:
-        logger.exception(f"Visualization error: {e}")
+        logger.exception(f"❌ Visualization error: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Visualization failed: {str(e)}"
@@ -522,8 +539,8 @@ if __name__ == "__main__":
     logger.info(f"🔧 Debug mode: {debug}")
     logger.info(f"🌐 Allowed origins: {ALLOWED_ORIGINS}")
     logger.info(f"💾 Cache enabled: {MAX_CACHE_SIZE} items max")
-    logger.info(f"🎨 Universal visualizer: ENABLED (BFS, DFS, Sorting, Arrays)")
-    logger.info(f"⚡ Using Gemini Flash model for faster responses")
+    logger.info(f"🎨 Visualizers: code_analyzer (PRIMARY) + universal_visualizer (FALLBACK)")
+    logger.info(f"📚 Stack support: ✅ ENABLED via code_analyzer")
     
     uvicorn.run(
         app, 

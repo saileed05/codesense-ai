@@ -1,10 +1,14 @@
+/* ============================================
+   FINAL FIX FOR SCROLLING ISSUE
+   ============================================ */
+
 .code-execution-panel {
   flex: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   background: #010409;
-  min-height: 0; /* CRITICAL: Allows flex child to shrink */
+  min-height: 0;
 }
 
 .editor-mode,
@@ -13,7 +17,8 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  min-height: 0; /* CRITICAL: Allows flex child to shrink */
+  min-height: 0;
+  height: 100%;
 }
 
 .editor-header,
@@ -24,7 +29,7 @@
   padding: 1rem 1.5rem;
   background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
   border-bottom: 2px solid #30363d;
-  flex-shrink: 0; /* Header never shrinks */
+  flex-shrink: 0;
 }
 
 .editor-header h2,
@@ -69,32 +74,31 @@
   flex: 1;
 }
 
-/* FIXED: Proper flex container for visual content */
+/* CRITICAL FIX: Visual content wrapper */
 .visual-content-wrapper {
   flex: 1;
   display: flex;
-  overflow: hidden;
-  min-height: 0; /* CRITICAL: Allows flex child to shrink */
+  overflow: hidden; /* KEEP THIS */
+  min-height: 0;
+  height: 100%;
 }
 
-/* FIXED: Split view with proper height constraints */
+/* CRITICAL FIX: Split view must allow scrolling */
 .split-view {
   display: grid;
   grid-template-columns: 1fr 2fr;
   gap: 1rem;
   padding: 1rem;
   width: 100%;
-  height: 100%; /* FIXED: Use 100% of parent height */
-  overflow: hidden;
+  height: 100%;
+  overflow: hidden; /* PARENT HIDES OVERFLOW */
   transition: grid-template-columns 0.3s ease;
 }
 
-/* FIXED: When code panel is collapsed, give more space to visualization */
 .split-view.code-collapsed {
-  grid-template-columns: 60px 1fr; /* Collapsed panel takes minimal space */
+  grid-template-columns: 0px 1fr;
 }
 
-/* FIXED: Code panel with proper height */
 .code-panel {
   display: flex;
   flex-direction: column;
@@ -103,7 +107,12 @@
   border-radius: 12px;
   border: 2px solid #30363d;
   transition: all 0.3s ease;
-  min-height: 0; /* CRITICAL */
+  min-height: 0;
+  min-width: 0;
+}
+
+.split-view.code-collapsed .code-panel {
+  display: none;
 }
 
 .code-panel-header {
@@ -148,19 +157,20 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  min-height: 0; /* CRITICAL */
+  min-height: 0;
 }
 
-/* FIXED: Visualization panel takes full available height */
+/* CRITICAL FIX: Visualization panel MUST be scrollable */
 .visualization-panel {
   display: flex;
   flex-direction: column;
-  overflow: hidden; /* CHANGED: Don't scroll here, scroll inside */
+  overflow: hidden; /* CHANGED: Parent manages overflow */
   background: #0d1117;
   border: 2px solid #30363d;
   border-radius: 12px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-  min-height: 0; /* CRITICAL */
+  min-height: 0;
+  height: 100%;
 }
 
 .empty-visualization {
@@ -202,13 +212,14 @@
   font-size: 0.95rem;
 }
 
-/* FIXED: Visualization content with proper flex layout */
+/* CRITICAL FIX: Visualization content with proper scroll */
 .visualization-content {
   display: flex;
   flex-direction: column;
-  height: 100%; /* FIXED: Take full height */
-  overflow: hidden;
-  min-height: 0; /* CRITICAL */
+  height: 100%;
+  overflow-y: auto; /* CHANGED: THIS is where scroll happens! */
+  overflow-x: hidden;
+  min-height: 0;
 }
 
 .current-line-display {
@@ -216,6 +227,9 @@
   background: linear-gradient(145deg, #161b22, #0d1117);
   border-bottom: 2px solid #30363d;
   flex-shrink: 0;
+  position: sticky; /* ADDED: Stick to top when scrolling */
+  top: 0;
+  z-index: 10;
 }
 
 .line-badge {
@@ -249,6 +263,7 @@
   color: #79c0ff;
   font-size: 0.95rem;
   line-height: 1.5;
+  word-wrap: break-word;
 }
 
 .code-preview code {
@@ -262,29 +277,29 @@
   padding: 0.5rem 0;
 }
 
-/* FIXED: This is where the scroll happens - takes remaining space */
+/* REMOVED: .viz-area is NOT needed anymore since parent scrolls */
 .viz-area {
-  flex: 1;
-  overflow-y: auto; /* Scroll here */
-  overflow-x: hidden;
-  padding: 1rem;
-  min-height: 0; /* CRITICAL: Allows scrolling */
+  padding: 1.5rem;
+  /* NO overflow properties here - parent handles it */
 }
 
-.viz-area::-webkit-scrollbar {
-  width: 10px;
+/* ADDED: Custom scrollbar for visualization-content */
+.visualization-content::-webkit-scrollbar {
+  width: 12px;
 }
 
-.viz-area::-webkit-scrollbar-track {
+.visualization-content::-webkit-scrollbar-track {
   background: #0d1117;
+  border-radius: 6px;
 }
 
-.viz-area::-webkit-scrollbar-thumb {
+.visualization-content::-webkit-scrollbar-thumb {
   background: #30363d;
-  border-radius: 5px;
+  border-radius: 6px;
+  border: 2px solid #0d1117;
 }
 
-.viz-area::-webkit-scrollbar-thumb:hover {
+.visualization-content::-webkit-scrollbar-thumb:hover {
   background: #484f58;
 }
 
@@ -296,7 +311,7 @@
   }
   
   .split-view.code-collapsed {
-    grid-template-rows: auto 1fr;
+    grid-template-rows: 0px 1fr;
   }
 }
 
@@ -320,7 +335,7 @@
   }
 
   .viz-area {
-    padding: 0.75rem;
+    padding: 1rem;
   }
   
   .collapse-btn span {

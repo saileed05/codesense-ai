@@ -1,5 +1,5 @@
 """
-Fixed Universal Code Visualizer - Handles Sorting Better
+Fixed Universal Code Visualizer - CORRECTED Line Numbers & Array Cloning
 """
 
 import sys
@@ -8,6 +8,7 @@ import json
 import traceback
 from typing import Any, Dict, List
 from collections import deque
+import copy  # ADDED: For deep copying arrays
 
 
 class UniversalCodeTracer:
@@ -20,14 +21,15 @@ class UniversalCodeTracer:
         self.local_vars = {}
         self.previous_vars = {}
         self.call_stack = []
-        self.skip_initial_assignments = True
         self.step_count = 0
+        self.initial_setup_complete = False
         
     def trace_execution(self, frame, event, arg):
         """Trace callback for sys.settrace"""
         if event == 'line':
             self.current_line = frame.f_lineno
-            self.local_vars = frame.f_locals.copy()
+            # FIX 1: Deep copy local vars to prevent mutation issues
+            self.local_vars = copy.deepcopy(frame.f_locals)
             
             # Get the actual code line
             code_lines = self.code.split('\n')
@@ -36,22 +38,37 @@ class UniversalCodeTracer:
             else:
                 code_line = ""
             
-            # Skip if we're still in initial variable setup (first 3 lines)
             self.step_count += 1
-            if self.step_count <= 3 and not any(keyword in code_line for keyword in ['for', 'while', 'if']):
-                self.previous_vars = self.local_vars.copy()
+            
+            # FIXED: Only skip comments and empty lines, NOT variable setup
+            if not code_line or code_line.startswith('#'):
+                self.previous_vars = copy.deepcopy(self.local_vars)
+                return self.trace_execution
+            
+            # FIXED: Track initial array setup
+            if 'arr' in self.local_vars and not self.initial_setup_complete:
+                self.initial_setup_complete = True
+                # Force showing the initial array
+                step = {
+                    'line': self.current_line,  # ✅ Using actual frame line number
+                    'code': code_line,
+                    'description': 'Initial array created',
+                    'visualization': self.detect_and_visualize()
+                }
+                self.steps.append(step)
+                self.previous_vars = copy.deepcopy(self.local_vars)
                 return self.trace_execution
             
             # Generate visualization for current state
             step = {
-                'line': self.current_line,
+                'line': self.current_line,  # ✅ Using actual frame line number
                 'code': code_line,
                 'description': self.generate_description(code_line),
                 'visualization': self.detect_and_visualize()
             }
             
             self.steps.append(step)
-            self.previous_vars = self.local_vars.copy()
+            self.previous_vars = copy.deepcopy(self.local_vars)
             
         elif event == 'call':
             func_name = frame.f_code.co_name
@@ -145,10 +162,17 @@ class UniversalCodeTracer:
     # ==================== VISUALIZATION METHODS ====================
     
     def visualize_sorting(self, arr_name: str) -> Dict:
-        """Visualize sorting algorithms with proper highlighting"""
+        """
+        FIX 2: Visualize sorting algorithms with proper array cloning
+        Previously: arr = self.local_vars.get(arr_name, [])  # ❌ Reference!
+        Now: Creates a snapshot (deep copy already done in trace_execution)
+        """
+        # FIX: This is now a deep copy from trace_execution, not a reference
         arr = self.local_vars.get(arr_name, [])
+        
         i = self.local_vars.get('i', -1)
         j = self.local_vars.get('j', -1)
+        min_idx = self.local_vars.get('min_idx', -1)  # For selection sort
         
         highlight = []
         operation = None
@@ -159,6 +183,11 @@ class UniversalCodeTracer:
             if j + 1 < len(arr):
                 highlight.append(j + 1)
             operation = 'comparing'
+        elif min_idx >= 0 and min_idx < len(arr):
+            highlight.append(min_idx)
+            if i >= 0 and i < len(arr):
+                highlight.append(i)
+            operation = 'selecting'
         elif i >= 0 and i < len(arr):
             highlight.append(i)
             operation = 'iteration'
@@ -166,7 +195,7 @@ class UniversalCodeTracer:
         return {
             'type': 'array',
             'name': arr_name,
-            'data': arr,
+            'data': list(arr),  # FIX: Explicit list() conversion for safety
             'capacity': len(arr),
             'highlight': highlight,
             'operation': operation
@@ -177,7 +206,7 @@ class UniversalCodeTracer:
         queue = self.local_vars.get('queue', deque())
         visited = self.local_vars.get('visited', set())
         graph = self.local_vars.get('graph', {})
-        current = self.local_vars.get('current', None)
+        current = self.local_vars.get('current', None) or self.local_vars.get('node', None)
         
         return {
             'type': 'graph_with_ds',
@@ -204,7 +233,7 @@ class UniversalCodeTracer:
         stack = self.local_vars.get('stack', [])
         visited = self.local_vars.get('visited', set())
         graph = self.local_vars.get('graph', {})
-        current = self.local_vars.get('current', None)
+        current = self.local_vars.get('current', None) or self.local_vars.get('node', None)
         
         return {
             'type': 'graph_with_ds',
@@ -241,7 +270,7 @@ class UniversalCodeTracer:
         return {
             'type': 'array',
             'name': name,
-            'data': value,
+            'data': list(value),  # FIX: Explicit list() conversion
             'capacity': len(value),
             'highlight': highlight,
             'operation': None
@@ -255,6 +284,7 @@ class UniversalCodeTracer:
             'name': name,
             'nodes': nodes,
             'edges': value,
+            'positions': self.generate_positions(nodes),
             'formatted': [f"{node} -> {', '.join(map(str, neighbors))}" 
                          for node, neighbors in value.items()]
         }
@@ -343,8 +373,10 @@ class UniversalCodeTracer:
         
         if code_line.startswith('def '):
             return "Defining function"
+        elif code_line.startswith('arr =') or code_line.startswith('array ='):
+            return "Creating array with initial values"
         elif code_line.startswith('n ='):
-            return "Getting array length"
+            return f"Getting array length: {n}" if n else "Getting array length"
         elif code_line.startswith('for i in range'):
             return f"Starting outer loop (i = {i})" if i is not None else "Starting outer loop"
         elif code_line.startswith('for j in range'):

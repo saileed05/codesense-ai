@@ -207,3 +207,184 @@ select:focus {
 *:focus:not(:focus-visible) {
   outline: none;
 }
+/* ========================================
+   SPLIT VIEW LAYOUT (SIDE-BY-SIDE)
+   ======================================== */
+
+.main-split-view {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.main-split-view > *:first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ========================================
+   EXISTING STYLES (keep all from NewApp.css)
+   ======================================== */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: #010409;
+  color: #c9d1d9;
+}
+
+code, pre {
+  font-family: 'JetBrains Mono', 'Consolas', 'Monaco', 'Courier New', monospace;
+}
+
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  background: linear-gradient(135deg, #010409 0%, #0d0d16 50%, #010409 100%);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0d1117;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #30363d;
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #484f58;
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.glass-effect {
+  background: rgba(13, 17, 23, 0.7);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(48, 54, 61, 0.5);
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #30363d;
+  border-top-color: #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+button {
+  font-family: inherit;
+  outline: none;
+}
+
+button:focus-visible {
+  outline: 2px solid #667eea;
+  outline-offset: 2px;
+}
+
+select {
+  font-family: inherit;
+  outline: none;
+}
+
+select:focus {
+  outline: 2px solid #667eea;
+  outline-offset: 2px;
+}
+
+@media (max-width: 1024px) {
+  .app-container {
+    font-size: 14px;
+  }
+  
+  .main-split-view {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 768px) {
+  .app-container {
+    font-size: 13px;
+  }
+}
+
+@media print {
+  .header-control-panel,
+  .status-bar {
+    display: none;
+  }
+  
+  .app-container {
+    background: white;
+    color: black;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media (prefers-contrast: high) {
+  .app-container {
+    border: 2px solid currentColor;
+  }
+  
+  button,
+  select {
+    border: 2px solid currentColor;
+  }
+}
+
+*:focus-visible {
+  outline: 2px solid #667eea;
+  outline-offset: 2px;
+}
+
+*:focus:not(:focus-visible) {
+  outline: none;
+}
