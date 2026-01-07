@@ -50,17 +50,16 @@ logger.info(f"🌐 Configured CORS origins: {ALLOWED_ORIGINS}")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:3000",  # Local development
+        "http://localhost:3000",
         "https://codesense-2yre28va2-saileed05s-projects.vercel.app",
         "https://codesense-ai-one.vercel.app",
-        "https://codesense-ai-saileed05-saileed05s-projects.vercel.app",
-        "https://*.vercel.app",  # This allows all your Vercel deployments
-    ],
+        "https://codesense-ai-saileed05-saileed05s-projects.vercel.app"
+    ],  # Remove the wildcard line!
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["*"],  # Allow all headers
-    expose_headers=["*"], # Expose all headers
-    max_age=3600  
+    allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=3600
 )
 
 # Gemini API configuration
