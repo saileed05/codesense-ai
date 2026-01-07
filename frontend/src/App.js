@@ -4,7 +4,7 @@ import CodeExecutionPanel from './components/CodeExecutionPanel';
 import { ExplanationOverlay, StatusBar } from './components/ExplanationOverlay';
 import './NewApp.css';
 
-const API_URL = 'https://codesense-ai-dx0b.onrender.com/';
+const API_URL = 'https://codesense-ai-dx0b.onrender.com';
 
 function App() {
   // Code and settings state

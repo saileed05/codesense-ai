@@ -1,3 +1,32 @@
+:root {
+  /* Core Backgrounds - darker and cleaner */
+  --bg-app: #0d1117;
+  --bg-panel: #161b22;
+  --bg-header: rgba(13, 17, 23, 0.85); /* Glass effect base */
+  
+  /* Borders - thinner and subtle */
+  --border-color: #30363d;
+  --border-highlight: #6e7681;
+  
+  /* Brand Colors - CodeSense Purple */
+  --brand-primary: #8957e5;
+  --brand-secondary: #bc8cff;
+  --brand-glow: rgba(137, 87, 229, 0.15);
+  
+  /* Status Colors */
+  --status-success: #238636;
+  --status-warning: #9e6a03;
+  
+  /* Text */
+  --text-main: #c9d1d9;
+  --text-muted: #8b949e;
+}
+
+/* Update App Container to be flat, not gradient */
+.app-container {
+  background: var(--bg-app);
+  /* The previous gradient was causing banding/visual noise */
+}
 /* ========================================
    GLOBAL STYLES & RESET
    ======================================== */
@@ -53,23 +82,22 @@ code, pre {
 /* ========================================
    CUSTOM SCROLLBAR
    ======================================== */
-
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 6px; /* Sleeker */
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #0d1117;
+  background: transparent; /* Cleaner than #0d1117 */
 }
 
 ::-webkit-scrollbar-thumb {
   background: #30363d;
-  border-radius: 5px;
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #484f58;
+  background: #58a6ff; /* Highlight on interaction */
 }
 
 /* ========================================
