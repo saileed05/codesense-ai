@@ -49,7 +49,13 @@ ALLOWED_ORIGINS = [origin.strip() for origin in allowed_origins_str.split(",")]
 logger.info(f"🌐 Configured CORS origins: {ALLOWED_ORIGINS}")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
+    allow_origins=[
+        "http://localhost:3000",  # Local development
+        "https://codesense-2yre28va2-saileed05s-projects.vercel.app",
+        "https://codesense-ai-one.vercel.app",
+        "https://codesense-ai-saileed05-saileed05s-projects.vercel.app",
+        "https://*.vercel.app",  # This allows all your Vercel deployments
+    ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],  # Allow all headers
