@@ -1,7 +1,10 @@
 """
-Enhanced Code Analyzer v2.2 - FIXED DUPLICATE CODE BUG
+Enhanced Code Analyzer v2.4 - COMPLETE FIX
+- Resolves variable references in safe_eval_value
+- Handles tuple swaps (a, b = b, a) for sorting
+- Handles len() calls in assignments
+- Improved BFS detection with queue variable checking
 Supports ANY graph algorithm visualization: BFS, DFS, Dijkstra, and generic graphs
-✅ CRITICAL FIX: Removed duplicate code that was overwriting stack metadata
 """
 import ast
 import math
@@ -13,8 +16,8 @@ from collections import deque
 # UTILITY FUNCTIONS
 # ============================================================================
 
-def safe_eval_value(node):
-    """Safely evaluate AST expressions to get actual values"""
+def safe_eval_value(node, variable_states: Dict = None):
+    """Safely evaluate AST expressions to get actual values with variable resolution"""
     try:
         if isinstance(node, ast.Constant):
             return node.value
@@ -23,38 +26,54 @@ def safe_eval_value(node):
         elif isinstance(node, ast.Str):
             return node.s
         elif isinstance(node, ast.List):
-            return [safe_eval_value(elt) for elt in node.elts]
+            return [safe_eval_value(elt, variable_states) for elt in node.elts]
         elif isinstance(node, ast.Dict):
             result = {}
             for key, value in zip(node.keys, node.values):
-                k = safe_eval_value(key)
-                v = safe_eval_value(value)
+                k = safe_eval_value(key, variable_states)
+                v = safe_eval_value(value, variable_states)
                 if k is not None:
                     result[k] = v
             return result
         elif isinstance(node, ast.Set):
-            return {safe_eval_value(elt) for elt in node.elts}
+            return {safe_eval_value(elt, variable_states) for elt in node.elts}
         elif isinstance(node, ast.Tuple):
-            return tuple(safe_eval_value(elt) for elt in node.elts)
+            return tuple(safe_eval_value(elt, variable_states) for elt in node.elts)
         elif isinstance(node, ast.BinOp):
-            left = safe_eval_value(node.left)
-            right = safe_eval_value(node.right)
+            left = safe_eval_value(node.left, variable_states)
+            right = safe_eval_value(node.right, variable_states)
             if isinstance(node.op, ast.Add):
-                return left + right
+                return left + right if left is not None and right is not None else None
             elif isinstance(node.op, ast.Sub):
-                return left - right
+                return left - right if left is not None and right is not None else None
             elif isinstance(node.op, ast.Mult):
-                return left * right
+                return left * right if left is not None and right is not None else None
             elif isinstance(node.op, ast.Div):
-                return left / right if right != 0 else float('inf')
+                return left / right if left is not None and right is not None and right != 0 else float('inf')
         elif isinstance(node, ast.UnaryOp):
-            operand = safe_eval_value(node.operand)
+            operand = safe_eval_value(node.operand, variable_states)
             if isinstance(node.op, ast.USub):
-                return -operand
+                return -operand if operand is not None else None
             elif isinstance(node.op, ast.UAdd):
-                return +operand
+                return +operand if operand is not None else None
         elif isinstance(node, ast.Name):
+            # ✅ FIX 1: Try to resolve variable references
+            if variable_states and node.id in variable_states:
+                resolved = variable_states[node.id].get("value")
+                if resolved is not None:
+                    return resolved
             return f"<var:{node.id}>"
+        elif isinstance(node, ast.Subscript):
+            # Handle arr[index] access
+            if variable_states and isinstance(node.value, ast.Name):
+                arr_name = node.value.id
+                if arr_name in variable_states:
+                    arr_data = variable_states[arr_name].get("data", [])
+                    if arr_data and isinstance(arr_data, list):
+                        index = safe_eval_value(node.slice, variable_states)
+                        if isinstance(index, int) and 0 <= index < len(arr_data):
+                            return arr_data[index]
+            return "..."
         else:
             return ast.unparse(node) if hasattr(ast, 'unparse') else str(node)
     except:
@@ -64,8 +83,8 @@ def safe_eval_value(node):
             return "..."
 
 
-def detect_type(node) -> str:
-    """Detect variable type from AST node"""
+def detect_type(node, variable_states: Dict = None) -> str:
+    """Detect variable type from AST node with context"""
     if isinstance(node, ast.List):
         return "list"
     elif isinstance(node, ast.Dict):
@@ -90,6 +109,11 @@ def detect_type(node) -> str:
             func_name = node.func.id
             if func_name in ['list', 'dict', 'set', 'tuple', 'deque']:
                 return func_name
+            elif func_name == 'len':
+                return "int"
+    elif isinstance(node, ast.Name):
+        if variable_states and node.id in variable_states:
+            return variable_states[node.id].get("type", "unknown")
     return "unknown"
 
 
@@ -256,12 +280,14 @@ class GraphDetector:
                 self.algorithm = 'prim'
                 return 'prim'
         
+        # ✅ FIX 3: Improved BFS detection with queue variable checking
         if '.pop(0)' in code or '.popleft()' in code:
-            has_list_structure = any(
-                state.get('type') in ['list', 'deque'] 
-                for state in self.states.values()
+            has_queue = any(
+                state.get('is_queue') or state.get('type') in ['list', 'deque']
+                for name, state in self.states.items()
+                if 'queue' in name.lower() or name.lower() in ['q', 'qu']
             )
-            if has_list_structure:
+            if has_queue:
                 self.algorithm = 'bfs'
                 return 'bfs'
         
@@ -314,7 +340,7 @@ def simulate_graph_traversal(graph_data: Dict, start_node, algorithm: str = "bfs
     if start_node not in nodes:
         start_node = nodes[0] if nodes else None
     
-    if not start_node:
+    if start_node is None:
         return []
     
     visited = set()
@@ -430,7 +456,7 @@ def simulate_graph_traversal(graph_data: Dict, start_node, algorithm: str = "bfs
 def generate_execution_steps(code: str, language: str = "python") -> List[Dict[str, Any]]:
     """
     Generate step-by-step execution visualization
-    ✅ FIXED VERSION: No duplicate code processing
+    ✅ FIXED VERSION: Resolves variables, handles tuple swaps, len() calls, BFS detection
     """
     
     steps = []
@@ -473,10 +499,28 @@ def generate_execution_steps(code: str, language: str = "python") -> List[Dict[s
                             "type": var_type,
                             "value": actual_value,
                             "data": actual_value if isinstance(actual_value, (list, dict, set)) else None,
-                            "is_stack": is_stack,    # ✅ PERSIST THIS
-                            "is_queue": is_queue,    # ✅ PERSIST THIS
-                            "is_visited": is_visited # ✅ PERSIST THIS
+                            "is_stack": is_stack,
+                            "is_queue": is_queue,
+                            "is_visited": is_visited
                         }
+        
+        # ===== PHASE 1.5: Resolve variable references =====
+        # ✅ FIX 1: Resolve <var:x> placeholders
+        changed = True
+        while changed:
+            changed = False
+            for name, state in variable_states.items():
+                val = state.get("value")
+                if isinstance(val, str) and val.startswith("<var:"):
+                    ref_name = val[5:-1]  # extract x from <var:x>
+                    if ref_name in variable_states:
+                        ref_value = variable_states[ref_name].get("value")
+                        if ref_value is not None and not isinstance(ref_value, str):
+                            state["value"] = ref_value
+                            # Also update data if it's a list
+                            if isinstance(ref_value, list):
+                                state["data"] = ref_value[:]
+                            changed = True
         
         # ===== PHASE 2: Detect graph algorithms =====
         
@@ -497,10 +541,10 @@ def generate_execution_steps(code: str, language: str = "python") -> List[Dict[s
                         start_node = start_val
                         break
             
-            if not start_node:
+            if start_node is None:
                 start_node = list(graph_data.keys())[0] if graph_data else None
             
-            if start_node:
+            if start_node is not None:
                 traversal_steps = simulate_graph_traversal(graph_data, start_node, algorithm)
                 
                 for i, state in enumerate(traversal_steps):
@@ -538,26 +582,311 @@ def generate_execution_steps(code: str, language: str = "python") -> List[Dict[s
             })
             
             return steps
-        
+
+        # ===== PHASE 3.5: Detect and simulate sorting algorithms =====
+        def detect_and_simulate_sorting():
+            """Detect bubble/insertion sort and simulate step by step"""
+            code_lower = code.lower()
+            
+            # Find array variable (first list assignment)
+            arr_var = None
+            arr_data = None
+            for name, state in variable_states.items():
+                if state.get('type') == 'list' and isinstance(state.get('data'), list):
+                    if all(isinstance(x, (int, float)) for x in state['data']):
+                        arr_var = name
+                        arr_data = state['data'][:]
+                        break
+            
+            if not arr_var or not arr_data:
+                return False
+
+            # Detect bubble sort: nested for loops + tuple swap arr[j], arr[j+1]
+            has_tuple_swap = any(
+                isinstance(node, ast.Assign) and
+                isinstance(node.targets[0], ast.Tuple) and
+                any(isinstance(e, ast.Subscript) for e in node.targets[0].elts)
+                for node in ast.walk(tree)
+                if isinstance(node, ast.Assign) and node.targets
+            )
+
+            # Detect insertion sort: while loop + key variable pattern
+            has_key_pattern = 'key' in code_lower and 'while' in code_lower
+
+            if has_tuple_swap:
+                # Simulate bubble sort
+                arr = arr_data[:]
+                n = len(arr)
+                sort_steps = []
+                # Initial state
+                sort_steps.append({
+                    "step": 0, "line": 1,
+                    "code": f"{arr_var} = {arr_data}",
+                    "description": f"Initial array '{arr_var}': {arr_data}",
+                    "visualization": {
+                        "type": "array", "name": arr_var,
+                        "data": arr[:], "capacity": n,
+                        "highlight": [], "operation": None
+                    }
+                })
+                step_i = 1
+                for i in range(n):
+                    for j in range(0, n - i - 1):
+                        if arr[j] > arr[j + 1]:
+                            arr[j], arr[j + 1] = arr[j + 1], arr[j]
+                            sort_steps.append({
+                                "step": step_i, "line": 1,
+                                "code": f"{arr_var}[{j}], {arr_var}[{j+1}] = {arr_var}[{j+1}], {arr_var}[{j}]",
+                                "description": f"Swap {arr[j+1]} and {arr[j]} at indices {j} ↔ {j+1}",
+                                "visualization": {
+                                    "type": "array", "name": arr_var,
+                                    "data": arr[:], "capacity": n,
+                                    "highlight": [j, j + 1], "operation": "swap"
+                                }
+                            })
+                            step_i += 1
+                        else:
+                            sort_steps.append({
+                                "step": step_i, "line": 1,
+                                "code": f"if {arr_var}[{j}] > {arr_var}[{j+1}]",
+                                "description": f"Compare {arr[j]} and {arr[j+1]} at indices {j},{j+1} — no swap needed",
+                                "visualization": {
+                                    "type": "array", "name": arr_var,
+                                    "data": arr[:], "capacity": n,
+                                    "highlight": [j, j + 1], "operation": "compare"
+                                }
+                            })
+                            step_i += 1
+                # Final sorted state
+                sort_steps.append({
+                    "step": step_i, "line": 1,
+                    "code": f"# Sorted!",
+                    "description": f"Array '{arr_var}' is now sorted: {arr}",
+                    "visualization": {
+                        "type": "array", "name": arr_var,
+                        "data": arr[:], "capacity": n,
+                        "highlight": list(range(n)), "operation": "sorted"
+                    }
+                })
+                steps.extend(sort_steps)
+                return True
+
+            elif has_key_pattern:
+                # Simulate insertion sort
+                arr = arr_data[:]
+                n = len(arr)
+                sort_steps = []
+                sort_steps.append({
+                    "step": 0, "line": 1,
+                    "code": f"{arr_var} = {arr_data}",
+                    "description": f"Initial array '{arr_var}': {arr_data}",
+                    "visualization": {
+                        "type": "array", "name": arr_var,
+                        "data": arr[:], "capacity": n,
+                        "highlight": [], "operation": None
+                    }
+                })
+                step_i = 1
+                for i in range(1, n):
+                    key = arr[i]
+                    sort_steps.append({
+                        "step": step_i, "line": 1,
+                        "code": f"key = {arr_var}[{i}]  # key = {key}",
+                        "description": f"Pick key = {key} at index {i}",
+                        "visualization": {
+                            "type": "array", "name": arr_var,
+                            "data": arr[:], "capacity": n,
+                            "highlight": [i], "operation": "pick_key"
+                        }
+                    })
+                    step_i += 1
+                    j = i - 1
+                    while j >= 0 and arr[j] > key:
+                        arr[j + 1] = arr[j]
+                        sort_steps.append({
+                            "step": step_i, "line": 1,
+                            "code": f"{arr_var}[{j+1}] = {arr_var}[{j}]  # shift {arr[j+1]}",
+                            "description": f"Shift {arr[j+1]} right from index {j} to {j+1}",
+                            "visualization": {
+                                "type": "array", "name": arr_var,
+                                "data": arr[:], "capacity": n,
+                                "highlight": [j, j + 1], "operation": "shift"
+                            }
+                        })
+                        step_i += 1
+                        j -= 1
+                    arr[j + 1] = key
+                    sort_steps.append({
+                        "step": step_i, "line": 1,
+                        "code": f"{arr_var}[{j+1}] = {key}  # insert key",
+                        "description": f"Insert key {key} at index {j+1}",
+                        "visualization": {
+                            "type": "array", "name": arr_var,
+                            "data": arr[:], "capacity": n,
+                            "highlight": [j + 1], "operation": "insert"
+                        }
+                    })
+                    step_i += 1
+                sort_steps.append({
+                    "step": step_i, "line": 1,
+                    "code": "# Sorted!",
+                    "description": f"Array '{arr_var}' is now sorted: {arr}",
+                    "visualization": {
+                        "type": "array", "name": arr_var,
+                        "data": arr[:], "capacity": n,
+                        "highlight": list(range(n)), "operation": "sorted"
+                    }
+                })
+                steps.extend(sort_steps)
+                return True
+
+            return False
+
+        if detect_and_simulate_sorting():
+            return steps
+
         # ===== PHASE 4: Regular code analysis (arrays, stacks, queues, variables) =====
-        # ✅ CRITICAL FIX: Process statements IN ORDER using a single pass
         
         def process_statement(node):
             """Process a single statement node"""
             nonlocal step_num
             
-            # Variable assignments
+            # ===== Intercept var = stack.pop() BEFORE variable assignment =====
             if isinstance(node, ast.Assign):
                 for target in node.targets:
                     if isinstance(target, ast.Name):
                         var_name = target.id
-                        var_type = detect_type(node.value)
-                        actual_value = safe_eval_value(node.value)
+                        
+                        # Check if RHS is a .pop() call on a known list
+                        if isinstance(node.value, ast.Call):
+                            call = node.value
+                            if isinstance(call.func, ast.Attribute) and call.func.attr == 'pop':
+                                if isinstance(call.func.value, ast.Name):
+                                    obj_name = call.func.value.id
+                                    if obj_name in variable_states and variable_states[obj_name]["type"] == "list":
+                                        current_data = variable_states[obj_name].get("data", [])[:]
+                                        is_stack = variable_states[obj_name].get("is_stack", False)
+                                        is_queue = variable_states[obj_name].get("is_queue", False)
+                                        is_dequeue = call.args and isinstance(call.args[0], ast.Constant) and call.args[0].value == 0
+                                        
+                                        if current_data:
+                                            if is_dequeue:
+                                                popped_value = current_data.pop(0)
+                                            else:
+                                                popped_value = current_data.pop()
+                                            
+                                            line_code = lines[node.lineno - 1].strip() if node.lineno <= len(lines) else ""
+                                            
+                                            steps.append({
+                                                "step": step_num,
+                                                "line": node.lineno,
+                                                "code": line_code,
+                                                "description": f"{'Pop' if is_stack else 'Dequeue' if is_queue else 'Pop'} {popped_value} from {obj_name} → stored in {var_name}",
+                                                "visualization": {
+                                                    "type": "stack" if is_stack else "queue" if is_queue else "array",
+                                                    "name": obj_name,
+                                                    "data": current_data[:],
+                                                    "capacity": max(len(current_data), 1),
+                                                    "highlight": [],
+                                                    "operation": "pop",
+                                                    "removed_value": popped_value
+                                                }
+                                            })
+                                            
+                                            variable_states[obj_name]["data"] = current_data
+                                            variable_states[var_name] = {
+                                                "type": "int" if isinstance(popped_value, (int, float)) else "any",
+                                                "value": popped_value,
+                                                "data": None,
+                                                "is_stack": False,
+                                                "is_queue": False,
+                                                "is_visited": False
+                                            }
+                                            step_num += 1
+                                            return  # Handled, skip normal variable assignment
+            
+            # ===== Variable assignments =====
+            if isinstance(node, ast.Assign):
+                for target in node.targets:
+                    # ✅ FIX 2: Handle tuple swap: arr[j], arr[j+1] = arr[j+1], arr[j]
+                    if isinstance(target, ast.Tuple):
+                        # Find the array being swapped
+                        for elt in target.elts:
+                            if isinstance(elt, ast.Subscript) and isinstance(elt.value, ast.Name):
+                                arr_name = elt.value.id
+                                if arr_name in variable_states:
+                                    # Check if this is a swap operation
+                                    if isinstance(node.value, ast.Tuple) and len(node.value.elts) == len(target.elts):
+                                        # It's a swap! Update the array data
+                                        current_data = variable_states[arr_name].get("data", [])
+                                        if current_data:
+                                            # Simulate the swap by evaluating indices
+                                            indices = []
+                                            for t in target.elts:
+                                                if isinstance(t, ast.Subscript):
+                                                    idx = safe_eval_value(t.slice, variable_states)
+                                                    if isinstance(idx, int):
+                                                        indices.append(idx)
+                                            
+                                            # Swap the values in our simulation
+                                            if len(indices) == 2:
+                                                i, j = indices
+                                                if 0 <= i < len(current_data) and 0 <= j < len(current_data):
+                                                    current_data[i], current_data[j] = current_data[j], current_data[i]
+                                                    variable_states[arr_name]["data"] = current_data
+                                                    
+                                                    line_code = lines[node.lineno - 1].strip() if node.lineno <= len(lines) else ""
+                                                    
+                                                    steps.append({
+                                                        "step": step_num,
+                                                        "line": node.lineno,
+                                                        "code": line_code,
+                                                        "description": f"Swap elements at indices {i} and {j} in '{arr_name}'",
+                                                        "visualization": {
+                                                            "type": "array",
+                                                            "name": arr_name,
+                                                            "data": current_data[:],
+                                                            "capacity": len(current_data),
+                                                            "highlight": [i, j],
+                                                            "operation": "swap"
+                                                        }
+                                                    })
+                                                    step_num += 1
+                                                    return
+                    
+                    # Handle regular variable assignments (not tuple targets)
+                    elif isinstance(target, ast.Name):
+                        var_name = target.id
+                        
+                        # ✅ FIX 2: Handle n = len(arr)
+                        if isinstance(node.value, ast.Call):
+                            call = node.value
+                            if isinstance(call.func, ast.Name) and call.func.id == 'len':
+                                if call.args and isinstance(call.args[0], ast.Name):
+                                    arr_name = call.args[0].id
+                                    if arr_name in variable_states:
+                                        arr_data = variable_states[arr_name].get("data", [])
+                                        actual_len = len(arr_data) if arr_data else 0
+                                        variable_states[var_name] = {
+                                            "type": "int",
+                                            "value": actual_len,
+                                            "data": None,
+                                            "is_stack": False,
+                                            "is_queue": False,
+                                            "is_visited": False
+                                        }
+                                        # Don't add a visual step for len() - it's not interesting
+                                        step_num += 1
+                                        return
+                        
+                        # Regular assignment with value evaluation
+                        var_type = detect_type(node.value, variable_states)
+                        actual_value = safe_eval_value(node.value, variable_states)
                         
                         line_code = lines[node.lineno - 1].strip() if node.lineno <= len(lines) else ""
                         
                         # Dictionary visualization
-                        if var_type == "dict":
+                        if var_type == "dict" or (isinstance(actual_value, dict) and actual_value):
                             dict_data = actual_value if isinstance(actual_value, dict) else {}
                             
                             steps.append({
@@ -574,12 +903,10 @@ def generate_execution_steps(code: str, language: str = "python") -> List[Dict[s
                             })
                         
                         # List/Array/Stack/Queue visualization
-                        elif var_type == "list":
-                            initial_data = []
-                            if isinstance(node.value, ast.List):
-                                initial_data = [safe_eval_value(elt) for elt in node.value.elts]
+                        elif var_type == "list" or isinstance(actual_value, list):
+                            initial_data = actual_value if isinstance(actual_value, list) else []
                             
-                            # ✅ Read from stored metadata
+                            # Read from stored metadata
                             is_stack = variable_states[var_name].get("is_stack", False)
                             is_queue = variable_states[var_name].get("is_queue", False)
                             is_visited = variable_states[var_name].get("is_visited", False)
@@ -658,7 +985,7 @@ def generate_execution_steps(code: str, language: str = "python") -> List[Dict[s
                         
                         step_num += 1
             
-            # List operations (append, pop, etc.)
+            # Standalone list operations (append, pop, etc.) - NOT assignments
             elif isinstance(node, ast.Expr) and isinstance(node.value, ast.Call):
                 call = node.value
                 
@@ -672,16 +999,16 @@ def generate_execution_steps(code: str, language: str = "python") -> List[Dict[s
                             
                             if obj_name in variable_states and variable_states[obj_name]["type"] == "list":
                                 if call.args:
-                                    new_value = safe_eval_value(call.args[0])
+                                    new_value = safe_eval_value(call.args[0], variable_states)
                                     
-                                    # ✅ Clone the array
+                                    # Clone the array
                                     current_data = variable_states[obj_name].get("data", [])
                                     current_data = current_data[:] if current_data else []
                                     current_data.append(new_value)
                                     
                                     line_code = lines[node.lineno - 1].strip() if node.lineno <= len(lines) else ""
                                     
-                                    # ✅ CRITICAL FIX: Read from stored metadata
+                                    # Read from stored metadata
                                     is_stack = variable_states[obj_name].get("is_stack", False)
                                     is_queue = variable_states[obj_name].get("is_queue", False)
                                     
@@ -703,7 +1030,7 @@ def generate_execution_steps(code: str, language: str = "python") -> List[Dict[s
                                     variable_states[obj_name]["data"] = current_data
                                     step_num += 1
                     
-                    # Pop operation (POP for stacks, DEQUEUE for queues)
+                    # Standalone pop operation (not assigned to a variable)
                     elif method_name == 'pop':
                         if isinstance(call.func.value, ast.Name):
                             obj_name = call.func.value.id
@@ -712,10 +1039,10 @@ def generate_execution_steps(code: str, language: str = "python") -> List[Dict[s
                                 current_data = variable_states[obj_name].get("data", [])
                                 
                                 if current_data:
-                                    # ✅ Clone before modifying
+                                    # Clone before modifying
                                     current_data = current_data[:]
                                     
-                                    # ✅ CRITICAL FIX: Read from stored metadata
+                                    # Read from stored metadata
                                     is_stack = variable_states[obj_name].get("is_stack", False)
                                     
                                     # Check if pop(0) (FIFO) or pop() (LIFO)
@@ -729,7 +1056,7 @@ def generate_execution_steps(code: str, language: str = "python") -> List[Dict[s
                                             popped_value = current_data[-1]
                                             current_data = current_data[:-1]
                                     else:
-                                        # ✅ Default pop() - LIFO
+                                        # Default pop() - LIFO
                                         popped_value = current_data[-1]
                                         current_data = current_data[:-1]
                                     
@@ -756,18 +1083,14 @@ def generate_execution_steps(code: str, language: str = "python") -> List[Dict[s
             
             # Recursively process nested statements (for loops, if statements, etc.)
             elif isinstance(node, (ast.For, ast.While, ast.If)):
-                for child in ast.iter_child_nodes(node):
-                    if isinstance(child, list):
-                        for item in child:
-                            process_statement(item)
-                    else:
-                        process_statement(child)
+                for stmt in node.body:
+                    process_statement(stmt)
+                for stmt in getattr(node, 'orelse', []):
+                    process_statement(stmt)
         
-        # ✅ CRITICAL FIX: Process all statements in order - NO DUPLICATE CODE AFTER THIS
+        # ===== Process all statements in order =====
         for statement in tree.body:
             process_statement(statement)
-        
-        # ===== END OF PROCESSING - NO MORE CODE SHOULD BE HERE =====
         
         if not steps:
             steps.append({
@@ -817,7 +1140,7 @@ def generate_execution_steps(code: str, language: str = "python") -> List[Dict[s
 # ============================================================================
 
 if __name__ == "__main__":
-    # Test with stack code
+    # Test with stack code including var = stack.pop()
     test_stack_code = """
 stack = []
 stack.append(10)
@@ -834,6 +1157,7 @@ second = stack.pop()
     for i, step in enumerate(steps):
         print(f"Step {i}:")
         print(f"  Line: {step['line']}")
+        print(f"  Code: {step['code']}")
         print(f"  Description: {step['description']}")
         viz = step['visualization']
         print(f"  Type: {viz['type']}")
@@ -846,17 +1170,31 @@ second = stack.pop()
         print()
     
     print("="*60)
-    print("\nExpected behavior:")
-    print("  Step 0: Create empty stack []")
-    print("  Step 1: Push 10 -> [10]")
-    print("  Step 2: Push 20 -> [10, 20]")
-    print("  Step 3: Push 30 -> [10, 20, 30]")
-    print("  Step 4: Pop 30 -> [10, 20]")
-    print("  Step 5: Pop 20 -> [10]")
-    print("\n✅ All steps should show type='stack', not 'array'!")
+    
+    # Test with bubble sort
+    test_bubble_code = """
+arr = [5, 2, 8, 1, 9]
+n = len(arr)
+for i in range(n):
+    for j in range(0, n-i-1):
+        if arr[j] > arr[j+1]:
+            arr[j], arr[j+1] = arr[j+1], arr[j]
+"""
+    
+    print("\nTesting Bubble Sort visualization...")
+    steps = generate_execution_steps(test_bubble_code, "python")
+    print(f"Generated {len(steps)} steps")
+    
+    for i, step in enumerate(steps[:5]):
+        print(f"\nStep {i}:")
+        print(f"  Description: {step['description']}")
+        print(f"  Type: {step['visualization']['type']}")
+        if step['visualization']['type'] == 'array':
+            print(f"  Data: {step['visualization'].get('data')}")
+    
     print("="*60)
     
-    # Test with BFS code
+    # Test with BFS graph
     test_bfs_code = """
 graph = {
     'A': ['B', 'C'],
@@ -866,8 +1204,8 @@ graph = {
     'E': ['F'],
     'F': []
 }
-
-queue = ['A']
+start = 'A'
+queue = [start]
 visited = []
 
 while queue:
@@ -879,11 +1217,12 @@ while queue:
                 queue.append(neighbor)
 """
     
-    print("\n\nTesting BFS visualization...")
+    print("\n\nTesting BFS graph visualization...")
     steps = generate_execution_steps(test_bfs_code, "python")
     print(f"Generated {len(steps)} steps")
     
-    for i, step in enumerate(steps[:3]):
-        print(f"\nStep {i}:")
-        print(f"  Description: {step['description']}")
-        print(f"  Viz type: {step['visualization']['type']}")
+    if steps and steps[0]['visualization']['type'] == 'graph_with_ds':
+        print("✅ BFS correctly detected and simulated!")
+        print(f"  Total steps: {len(steps)}")
+    else:
+        print("⚠️ BFS fell back to regular processing")

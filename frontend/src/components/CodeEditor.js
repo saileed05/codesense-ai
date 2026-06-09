@@ -1,26 +1,29 @@
 import React, { useRef, useEffect, useState } from 'react';
 import './CodeEditor.css';
 
+// ===== DEBUG CONFIGURATION =====
+const DEBUG = process.env.NODE_ENV !== 'production' || process.env.REACT_APP_DISABLE_LOGS !== 'true';
+// ================================
+
 const CodeEditor = ({ value, onChange, language, currentLine = null, readOnly = false }) => {
   const textareaRef = useRef(null);
   const lineNumbersRef = useRef(null);
   const [lineCount, setLineCount] = useState(1);
 
-  // Update line count when value changes
   useEffect(() => {
     const lines = value.split('\n').length;
     setLineCount(lines);
-    console.log('📝 Code has', lines, 'lines, current line:', currentLine);
+    if (DEBUG) {
+      console.log('📝 Code has', lines, 'lines, current line:', currentLine);
+    }
   }, [value, currentLine]);
 
-  // Sync scroll between textarea and line numbers
   const handleScroll = (e) => {
     if (lineNumbersRef.current) {
       lineNumbersRef.current.scrollTop = e.target.scrollTop;
     }
   };
 
-  // Handle tab key for indentation
   const handleTab = (e) => {
     if (e.key === 'Tab' && !readOnly) {
       e.preventDefault();
@@ -37,18 +40,19 @@ const CodeEditor = ({ value, onChange, language, currentLine = null, readOnly = 
     }
   };
 
-  // Auto-scroll to current line when it changes
   useEffect(() => {
     if (currentLine && textareaRef.current && lineNumbersRef.current) {
-      const lineHeight = 22.4; // Match CSS line height
-      const scrollPosition = (currentLine - 1) * lineHeight - 100; // Center it
+      const lineHeight = 22.4;
+      const scrollPosition = (currentLine - 1) * lineHeight - 100;
       
       textareaRef.current.scrollTo({
         top: Math.max(0, scrollPosition),
         behavior: 'smooth'
       });
       
-      console.log('🎯 Scrolling to line', currentLine, 'at position', scrollPosition);
+      if (DEBUG) {
+        console.log('🎯 Scrolling to line', currentLine, 'at position', scrollPosition);
+      }
     }
   }, [currentLine]);
 
@@ -83,9 +87,11 @@ const CodeEditor = ({ value, onChange, language, currentLine = null, readOnly = 
         <span className="editor-info">Language: {language}</span>
         <span className="editor-info">{lineCount} lines</span>
         <span className="editor-info">{value.length} characters</span>
-        {currentLine && <span className="editor-info" style={{ color: '#58a6ff', fontWeight: 'bold' }}>
-          ▶ Line {currentLine}
-        </span>}
+        {currentLine && (
+          <span className="editor-info" style={{ color: '#58a6ff', fontWeight: 'bold' }}>
+            ▶ Line {currentLine}
+          </span>
+        )}
       </div>
     </div>
   );

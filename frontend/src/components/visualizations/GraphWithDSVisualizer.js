@@ -252,6 +252,7 @@ const GraphWithDSVisualizer = ({ data }) => {
     const elements = ds.data || [];
     const { name, type, highlight, operation, removed_value } = ds;
 
+    // PROPER HORIZONTAL QUEUE VISUALIZATION
     if (type === 'queue') {
       return (
         <div 
@@ -268,12 +269,17 @@ const GraphWithDSVisualizer = ({ data }) => {
             )}
           </div>
 
-          <div className="ds-container">
-            <div className="ds-label front">← FRONT</div>
-            
-            <div className="ds-elements">
+          <div className="queue-visual-container">
+            {/* Arrow indicators */}
+            <div className="queue-arrows">
+              <span className="queue-arrow-left">◄── FRONT</span>
+              <span className="queue-arrow-right">BACK ──►</span>
+            </div>
+
+            {/* Queue items - horizontal */}
+            <div className="queue-items-horizontal">
               {elements.length === 0 ? (
-                <div className="empty-ds">Empty Queue</div>
+                <div className="empty-queue">Empty Queue</div>
               ) : (
                 elements.map((value, index) => {
                   const isHighlighted = highlight?.includes(index);
@@ -283,34 +289,57 @@ const GraphWithDSVisualizer = ({ data }) => {
                   return (
                     <div 
                       key={index} 
-                      className={`ds-box ${isHighlighted ? 'highlighted' : ''} ${isFront ? 'active' : ''}`}
+                      className={`queue-card ${isHighlighted ? 'highlighted' : ''} ${isFront ? 'front-item' : ''} ${isBack ? 'back-item' : ''}`}
+                      style={{ 
+                        animation: isHighlighted && operation === 'enqueue' ? 'slideIn 0.3s ease-out' : 'none',
+                        position: 'relative'
+                      }}
                     >
                       {isHighlighted && operation === 'enqueue' && (
-                        <div className="insert-indicator">↓ NEW</div>
+                        <div className="enqueue-indicator">↓ NEW ↓</div>
                       )}
-                      
-                      <div className="ds-value">{value}</div>
-                      
-                      {isFront && <div className="position-badge">FRONT</div>}
-                      {isBack && !isFront && <div className="position-badge">BACK</div>}
+                      <div className="queue-value">{value}</div>
+                      <div className="queue-index">[{index}]</div>
+                      {isFront && <div className="queue-front-label">← FRONT</div>}
+                      {isBack && <div className="queue-back-label">BACK →</div>}
                     </div>
                   );
                 })
               )}
             </div>
-            
-            <div className="ds-label back">BACK →</div>
+
+            {/* Labels */}
+            <div className="queue-labels">
+              <span className="front-label">◄ FRONT (dequeue from here)</span>
+              <span className="back-label">BACK (enqueue here) ►</span>
+            </div>
           </div>
 
           {operation === 'dequeue' && removed_value && (
-            <div className="removed-indicator">
-              ⬅️ Dequeued: <strong>{removed_value}</strong>
+            <div className="dequeue-indicator">
+              ⬅️ Dequeued from FRONT: <strong>{removed_value}</strong>
             </div>
           )}
+
+          <div className="queue-metadata">
+            <div className="metadata-item">
+              <span className="metadata-label">Queue Size:</span>
+              <span className="metadata-value">{elements.length}</span>
+            </div>
+            <div className="metadata-item">
+              <span className="metadata-label">Front Element:</span>
+              <span className="metadata-value" style={{ color: '#3fb950' }}>{elements[0] || 'N/A'}</span>
+            </div>
+            <div className="metadata-item">
+              <span className="metadata-label">Back Element:</span>
+              <span className="metadata-value" style={{ color: '#f0883e' }}>{elements[elements.length - 1] || 'N/A'}</span>
+            </div>
+          </div>
         </div>
       );
     }
 
+    // STACK VISUALIZATION - Vertical layout
     if (type === 'stack') {
       return (
         <div 
@@ -327,12 +356,12 @@ const GraphWithDSVisualizer = ({ data }) => {
             )}
           </div>
 
-          <div className="ds-container stack-container">
-            <div className="ds-label">TOP ↓</div>
+          <div className="stack-visual-container">
+            <div className="stack-top-label">▼ TOP (push/pop here) ▼</div>
             
-            <div className="ds-elements stack">
+            <div className="stack-items-vertical">
               {elements.length === 0 ? (
-                <div className="empty-ds">Empty Stack</div>
+                <div className="empty-queue">Empty Stack</div>
               ) : (
                 [...elements].reverse().map((value, displayIndex) => {
                   const actualIndex = elements.length - 1 - displayIndex;
@@ -342,27 +371,47 @@ const GraphWithDSVisualizer = ({ data }) => {
                   return (
                     <div 
                       key={actualIndex} 
-                      className={`ds-box ${isHighlighted ? 'highlighted' : ''} ${isTop ? 'active' : ''}`}
+                      className={`stack-card ${isHighlighted ? 'highlighted' : ''} ${isTop ? 'top-item' : ''}`}
+                      style={{ 
+                        animation: isHighlighted && operation === 'push' ? 'slideIn 0.3s ease-out' : 'none',
+                        position: 'relative'
+                      }}
                     >
                       {isHighlighted && operation === 'push' && (
-                        <div className="insert-indicator">↓ NEW</div>
+                        <div className="enqueue-indicator" style={{ right: 'auto', left: '-15px', top: '50%', transform: 'translateY(-50%)' }}>← NEW</div>
                       )}
-                      
-                      <div className="ds-value">{value}</div>
-                      
-                      {isTop && <div className="position-badge">TOP</div>}
+                      <div className="stack-value">{value}</div>
+                      <div className="stack-index">[{displayIndex}]</div>
+                      {isTop && <div className="top-badge">TOP</div>}
                     </div>
                   );
                 })
               )}
             </div>
+            
+            <div className="stack-bottom-label">▲ BOTTOM ▲</div>
           </div>
 
           {operation === 'pop' && removed_value && (
-            <div className="removed-indicator">
-              ⬆️ Popped: <strong>{removed_value}</strong>
+            <div className="dequeue-indicator">
+              ⬆️ Popped from TOP: <strong>{removed_value}</strong>
             </div>
           )}
+
+          <div className="queue-metadata">
+            <div className="metadata-item">
+              <span className="metadata-label">Stack Size:</span>
+              <span className="metadata-value">{elements.length}</span>
+            </div>
+            <div className="metadata-item">
+              <span className="metadata-label">Top Element:</span>
+              <span className="metadata-value" style={{ color: '#a371f7' }}>{elements[elements.length - 1] || 'N/A'}</span>
+            </div>
+            <div className="metadata-item">
+              <span className="metadata-label">Bottom Element:</span>
+              <span className="metadata-value">{elements[0] || 'N/A'}</span>
+            </div>
+          </div>
         </div>
       );
     }
@@ -377,21 +426,21 @@ const GraphWithDSVisualizer = ({ data }) => {
         role="status"
         aria-live="polite"
       >
-         {graph.current_node ? (
-           <div className="description-text">
+        {graph.current_node ? (
+          <div className="description-text">
             <strong>Processing:</strong> Node <span className="node-badge">{graph.current_node}</span>
-             {graph.exploring?.length > 0 && (
-               <span> → Checking neighbor <span className="node-badge exploring">{graph.exploring[0]}</span></span>
-             )}
+            {graph.exploring?.length > 0 && (
+              <span> → Checking neighbor <span className="node-badge exploring">{graph.exploring[0]}</span></span>
+            )}
           </div>
-         ) : (
-           <div className="description-text">
-             <strong>Ready to start traversal</strong>
-           </div>
-         )}
+        ) : (
+          <div className="description-text">
+            <strong>Ready to start traversal</strong>
+          </div>
+        )}
       </div>
 
-      {/* FIXED: Side-by-side layout wrapper */}
+      {/* Side-by-side layout wrapper */}
       <div className="viz-grid">
         {graph && renderGraph(graph)}
         {data_structure && renderDataStructure(data_structure)}

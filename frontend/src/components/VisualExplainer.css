@@ -253,3 +253,14 @@
     gap: 1rem;
   }
 }
+/* Add to VisualExplainer.css */
+.visual-step-header {
+  position: sticky;
+  top: 0;
+  background: #010409;
+  padding: 0.5rem;
+  border-bottom: 1px solid #30363d;
+  z-index: 100;
+  font-size: 0.9rem;
+  color: #8b949e;
+}

@@ -4,6 +4,10 @@ import VisualExplainer from './VisualExplainer';
 import { ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react';
 import './CodeExecutionPanel.css';
 
+// ===== DEBUG CONFIGURATION =====
+const DEBUG = process.env.NODE_ENV !== 'production' || process.env.REACT_APP_DISABLE_LOGS !== 'true';
+// ================================
+
 const CodeExecutionPanel = ({
   code,
   language,
@@ -14,16 +18,17 @@ const CodeExecutionPanel = ({
   onCodeChange,
   onBackToEditor
 }) => {
-  // NEW: Collapsible code panel state
   const [isCodePanelCollapsed, setIsCodePanelCollapsed] = useState(false);
   
-  console.log('CodeExecutionPanel render:', { 
-    viewMode, 
-    currentStep, 
-    totalSteps: visualSteps?.length,
-    hasSteps: !!visualSteps && visualSteps.length > 0,
-    currentLine // Debug line number
-  });
+  if (DEBUG) {
+    console.log('CodeExecutionPanel render:', { 
+      viewMode, 
+      currentStep, 
+      totalSteps: visualSteps?.length,
+      hasSteps: !!visualSteps && visualSteps.length > 0,
+      currentLine
+    });
+  }
   
   const renderVisualization = () => {
     if (!visualSteps || visualSteps.length === 0) {
@@ -42,7 +47,6 @@ const CodeExecutionPanel = ({
     
     return (
       <div className="visualization-content">
-        {/* FIXED: Show current step info */}
         <div className="current-line-display">
           <div className="line-badge">
             <span className="line-label">
@@ -105,10 +109,8 @@ const CodeExecutionPanel = ({
           </div>
           
           <div className="visual-content-wrapper">
-            {/* NEW: Updated split-view with collapsible support */}
             <div className={`split-view ${isCodePanelCollapsed ? 'code-collapsed' : ''}`}>
               
-              {/* Code Panel with Collapse Button */}
               <div className="code-panel">
                 <div className="code-panel-header">
                   <span className="panel-title">📄 Code</span>
@@ -135,7 +137,6 @@ const CodeExecutionPanel = ({
                 )}
               </div>
               
-              {/* Visualization Panel */}
               <div className="visualization-panel">
                 {renderVisualization()}
               </div>

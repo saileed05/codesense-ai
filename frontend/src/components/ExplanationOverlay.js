@@ -113,4 +113,5 @@ export const StatusBar = ({ status }) => {
   );
 };
 
-export default { ExplanationOverlay, StatusBar };
+// Only ONE default export at the bottom
+export default ExplanationOverlay;

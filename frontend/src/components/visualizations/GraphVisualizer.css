@@ -1,7 +1,4 @@
-/* ========================================
-   GRAPH VISUALIZER - FLAT DARK THEME
-   ======================================== */
-
+/* GraphVisualizer.css - Update for responsive canvas */
 .graph-visualizer {
   display: flex;
   flex-direction: column;
@@ -9,7 +6,6 @@
   width: 100%;
 }
 
-/* --- Header --- */
 .graph-header {
   display: flex;
   justify-content: space-between;
@@ -36,7 +32,6 @@
   border-radius: 6px;
 }
 
-/* --- Canvas Area --- */
 .graph-canvas-container {
   background: #0d1117;
   border: 1px solid #30363d;
@@ -45,16 +40,18 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  overflow: hidden;
-  box-shadow: inset 0 0 20px rgba(0,0,0,0.2); /* Subtle inner shadow */
+  overflow: auto;
+  box-shadow: inset 0 0 20px rgba(0,0,0,0.2);
+  min-height: 400px;
+  width: 100%;
 }
 
 .graph-canvas {
+  display: block;
   max-width: 100%;
   height: auto;
 }
 
-/* --- Adjacency List (Code Style) --- */
 .graph-structure {
   background: #0d1117;
   border: 1px solid #30363d;
@@ -90,7 +87,6 @@
   color: #c9d1d9;
 }
 
-/* --- Metadata --- */
 .graph-metadata {
   display: flex;
   justify-content: center;
@@ -107,5 +103,13 @@
   gap: 0.5rem;
 }
 
-.metadata-label { color: #8b949e; font-size: 0.9rem; }
-.metadata-value { color: #c9d1d9; font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+.metadata-label { 
+  color: #8b949e; 
+  font-size: 0.9rem; 
+}
+
+.metadata-value { 
+  color: #c9d1d9; 
+  font-family: 'JetBrains Mono', monospace; 
+  font-weight: 600; 
+}

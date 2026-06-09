@@ -1,27 +1,29 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { getVisualizer, hasVisualizer } from './VisualizerRegistry';
+import ErrorBoundary from './ErrorBoundary';
 import './VisualExplainer.css';
+
+// ===== DEBUG CONFIGURATION =====
+const DEBUG = process.env.NODE_ENV !== 'production' || process.env.REACT_APP_DISABLE_LOGS !== 'true';
+// ================================
 
 const VisualExplainer = ({ code, language, apiUrl, preloadedSteps, currentStep }) => {
   const [steps, setSteps] = useState([]);
   const [renderKey, setRenderKey] = useState(0);
   const containerRef = useRef(null);
 
-  // Update steps when preloadedSteps changes
   useEffect(() => {
     if (preloadedSteps && preloadedSteps.length > 0) {
-      console.log('📊 Loading steps:', preloadedSteps.length);
+      if (DEBUG) console.log('📊 Loading steps:', preloadedSteps.length);
       setSteps(preloadedSteps);
       setRenderKey(prev => prev + 1);
     }
   }, [preloadedSteps]);
 
-  // Force re-render when currentStep changes AND auto-scroll
   useEffect(() => {
-    console.log('🔄 Current step changed to:', currentStep);
+    if (DEBUG) console.log('🔄 Current step changed to:', currentStep);
     setRenderKey(prev => prev + 1);
     
-    // Auto-scroll to top of visualization
     if (containerRef.current) {
       containerRef.current.scrollTo({
         top: 0,
@@ -30,19 +32,14 @@ const VisualExplainer = ({ code, language, apiUrl, preloadedSteps, currentStep }
     }
   }, [currentStep]);
 
-  // Debug current step data
   useEffect(() => {
-    if (steps.length > 0 && currentStep < steps.length) {
+    if (DEBUG && steps.length > 0 && currentStep < steps.length) {
       const stepData = steps[currentStep];
       console.log('🔍 Step', currentStep, 'data:', stepData);
       console.log('🎨 Visualization type:', stepData?.visualization?.type);
     }
   }, [steps, currentStep]);
 
-  /**
-   * Render visualization using dynamic registry
-   * This replaces the old switch statement
-   */
   const renderVisualization = (viz) => {
     if (!viz) {
       return (
@@ -55,14 +52,13 @@ const VisualExplainer = ({ code, language, apiUrl, preloadedSteps, currentStep }
     const vizType = viz.type;
     const vizKey = `${vizType}-${currentStep}-${renderKey}`;
 
-    // Check if visualizer exists in registry
     if (!hasVisualizer(vizType)) {
-      console.warn(`⚠️ Unknown visualization type: ${vizType}`);
+      if (DEBUG) console.warn(`⚠️ Unknown visualization type: ${vizType}`);
       return (
         <div className="unknown-viz" key={vizKey}>
           <p>⚠️ Unknown visualization type: <code>{vizType}</code></p>
           <p style={{ fontSize: '0.9rem', color: '#8b949e', marginTop: '0.5rem' }}>
-            Available types: {Object.keys(getVisualizer).join(', ')}
+            Available types: array, graph, graph_with_ds, queue, stack, dict, variable
           </p>
         </div>
       );
@@ -70,7 +66,6 @@ const VisualExplainer = ({ code, language, apiUrl, preloadedSteps, currentStep }
 
     const Visualizer = getVisualizer(vizType);
 
-    // Handle special inline cases (dict, variable, none, error)
     if (typeof Visualizer === 'string') {
       switch (Visualizer) {
         case 'dict':
@@ -122,12 +117,14 @@ const VisualExplainer = ({ code, language, apiUrl, preloadedSteps, currentStep }
       }
     }
 
-    // Render component from registry
     if (Visualizer) {
-      return <Visualizer key={vizKey} data={viz} />;
+      return (
+        <ErrorBoundary key={vizKey}>
+          <Visualizer data={viz} />
+        </ErrorBoundary>
+      );
     }
 
-    // Fallback
     return (
       <div className="no-visualization" key={vizKey}>
         <p>⚠️ Visualizer component not found for type: {vizType}</p>
@@ -147,25 +144,11 @@ const VisualExplainer = ({ code, language, apiUrl, preloadedSteps, currentStep }
     );
   }
 
-  // Safely get current step data with bounds checking
   const currentStepData = steps[currentStep] || steps[0];
-  
-  // Debug logging
-  console.log('🎯 Rendering step', currentStep, 'of', steps.length, 'visualization:', currentStepData?.visualization?.type);
 
   return (
     <div className="visual-explainer-simple" ref={containerRef}>
-      {/* Step counter for debugging */}
-      <div style={{
-        position: 'sticky',
-        top: 0,
-        background: '#010409',
-        padding: '0.5rem',
-        borderBottom: '1px solid #30363d',
-        zIndex: 100,
-        fontSize: '0.9rem',
-        color: '#8b949e'
-      }}>
+      <div className="visual-step-header">
         Step {currentStep + 1} of {steps.length}
         {currentStepData?.line && ` | Line: ${currentStepData.line}`}
         {currentStepData?.visualization?.type && ` | Type: ${currentStepData.visualization.type}`}

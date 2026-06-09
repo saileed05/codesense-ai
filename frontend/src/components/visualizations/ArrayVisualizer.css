@@ -1,7 +1,4 @@
-/* ========================================
-   ARRAY VISUALIZER - FLAT DARK THEME
-   ======================================== */
-
+/* ArrayVisualizer.css - Add missing classes */
 .array-visualizer {
   display: flex;
   flex-direction: column;
@@ -10,7 +7,6 @@
   font-family: 'Segoe UI', sans-serif;
 }
 
-/* --- Header --- */
 .array-header {
   display: flex;
   justify-content: space-between;
@@ -22,7 +18,7 @@
 }
 
 .array-name {
-  color: #58a6ff; /* GitHub Blue */
+  color: #58a6ff;
   font-family: 'JetBrains Mono', monospace;
   font-weight: 600;
   font-size: 1.1rem;
@@ -38,13 +34,12 @@
   font-family: 'JetBrains Mono', monospace;
 }
 
-/* --- Container --- */
 .array-container {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   padding: 1.5rem;
-  background: #0d1117; /* Darkest background */
+  background: #0d1117;
   border: 1px solid #30363d;
   border-radius: 8px;
   justify-content: center;
@@ -52,7 +47,6 @@
   min-height: 120px;
 }
 
-/* --- Array Box (Cell) --- */
 .array-box {
   display: flex;
   flex-direction: column;
@@ -83,9 +77,8 @@
   font-family: 'JetBrains Mono', monospace;
 }
 
-/* --- States --- */
 .array-box.highlighted .array-value {
-  border-color: #d29922; /* Gold border */
+  border-color: #d29922;
   color: #d29922;
   background: rgba(210, 153, 34, 0.1);
   transform: translateY(-2px);
@@ -98,7 +91,39 @@
   background: transparent;
 }
 
-/* --- Resize Indicator --- */
+/* ADDED: Insertion arrow for push operations */
+.insertion-arrow {
+  position: absolute;
+  top: -20px;
+  font-size: 1.2rem;
+  color: #3fb950;
+  font-weight: bold;
+  animation: bounce 0.3s ease;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(5px); }
+}
+
+/* ADDED: Glow effect for highlighted elements */
+.glow-effect {
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  border-radius: 8px;
+  background: radial-gradient(circle, rgba(210, 153, 34, 0.3), transparent);
+  pointer-events: none;
+  animation: pulse 0.5s ease-out;
+}
+
+@keyframes pulse {
+  0% { opacity: 0; transform: scale(0.9); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
 .resize-indicator {
   text-align: center;
   padding: 0.75rem;
@@ -110,7 +135,6 @@
   font-family: 'JetBrains Mono', monospace;
 }
 
-/* --- Metadata --- */
 .array-metadata {
   display: flex;
   justify-content: center;

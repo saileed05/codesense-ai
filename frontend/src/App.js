@@ -1,8 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import HeaderControlPanel from './components/HeaderControlPanel';
 import CodeExecutionPanel from './components/CodeExecutionPanel';
 import { ExplanationOverlay, StatusBar } from './components/ExplanationOverlay';
 import './NewApp.css';
+
+// ===== DEBUG CONFIGURATION =====
+const DEBUG = process.env.NODE_ENV !== 'production' || process.env.REACT_APP_DISABLE_LOGS !== 'true';
+// ================================
 
 const API_URL = process.env.REACT_APP_API_URL || 'https://codesense-ai-dx0b.onrender.com';
 
@@ -24,7 +28,7 @@ def fibonacci(n):
   const [isPaused, setIsPaused] = useState(false);
   
   // View mode state
-  const [viewMode, setViewMode] = useState('editor'); // 'editor', 'visual', 'explain'
+  const [viewMode, setViewMode] = useState('editor');
   const [explanation, setExplanation] = useState(null);
   const [visualSteps, setVisualSteps] = useState([]);
   const [currentStep, setCurrentStep] = useState(0);
@@ -60,7 +64,7 @@ def fibonacci(n):
       setExplanation(data);
       showStatus('success', 'Code explanation generated!');
     } catch (error) {
-      console.error('Explain error:', error);
+      if (DEBUG) console.error('Explain error:', error);
       showStatus('error', `Failed: ${error.message}`);
       setViewMode('editor');
     } finally {
@@ -68,7 +72,7 @@ def fibonacci(n):
     }
   };
 
-  // ==================== VISUAL EXPLAIN (FIXED - Remove duplicate) ====================
+  // ==================== VISUAL EXPLAIN ====================
   const handleVisualExplain = async () => {
     if (!code.trim()) {
       showStatus('error', 'Please enter some code first!');
@@ -97,17 +101,16 @@ def fibonacci(n):
       setVisualSteps(steps);
       setCurrentStep(0);
       
-      // FIX: Set initial line highlighting from first step
       if (steps.length > 0 && steps[0]?.line !== undefined) {
         setCurrentLine(steps[0].line);
-        console.log('🎬 Starting at line:', steps[0].line);
+        if (DEBUG) console.log('🎬 Starting at line:', steps[0].line);
       }
       
-      setIsExecuting(false); // Don't auto-play, wait for user
+      setIsExecuting(false);
       setIsPaused(true);
       showStatus('success', 'Visualization ready! Press play to start.');
     } catch (error) {
-      console.error('Visualization error:', error);
+      if (DEBUG) console.error('Visualization error:', error);
       showStatus('error', `Failed: ${error.message}`);
       setViewMode('editor');
     } finally {
@@ -135,7 +138,6 @@ def fibonacci(n):
     setCurrentStep(0);
     setIsPaused(true);
     setIsExecuting(false);
-    // Reset to first step's line
     if (visualSteps.length > 0 && visualSteps[0]?.line !== undefined) {
       setCurrentLine(visualSteps[0].line);
     } else {
@@ -151,8 +153,8 @@ def fibonacci(n):
       setCurrentStep(nextStep);
       if (nextStepData?.line !== undefined) {
         setCurrentLine(nextStepData.line);
+        if (DEBUG) console.log('➡️ Moving to step', nextStep, 'line:', nextStepData?.line);
       }
-      console.log('➡️ Moving to step', nextStep, 'line:', nextStepData?.line);
     } else {
       showStatus('success', 'Execution completed!');
       setIsExecuting(false);
@@ -166,10 +168,71 @@ def fibonacci(n):
       setCurrentStep(prevStep);
       if (prevStepData?.line !== undefined) {
         setCurrentLine(prevStepData.line);
+        if (DEBUG) console.log('⬅️ Moving to step', prevStep, 'line:', prevStepData?.line);
       }
-      console.log('⬅️ Moving to step', prevStep, 'line:', prevStepData?.line);
     }
   };
+
+  // ==================== KEYBOARD SHORTCUTS ====================
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (viewMode !== 'visual') return;
+      if (e.target.matches('input, textarea')) return;
+      
+      if ((e.ctrlKey && e.code === 'Space') || e.code === 'Space') {
+        e.preventDefault();
+        if (isPaused || !isExecuting) {
+          handlePlay();
+        } else {
+          handlePause();
+        }
+      } else if (e.ctrlKey && e.code === 'ArrowRight') {
+        e.preventDefault();
+        handleNext();
+      } else if (e.ctrlKey && e.code === 'ArrowLeft') {
+        e.preventDefault();
+        handlePrevious();
+      } else if (e.ctrlKey && e.code === 'KeyR') {
+        e.preventDefault();
+        handleReset();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [viewMode, isPaused, isExecuting]);
+
+  // ==================== AUTO PLAYBACK ====================
+  useEffect(() => {
+    let interval;
+    
+    if (isExecuting && !isPaused && visualSteps.length > 0) {
+      if (currentStep < visualSteps.length - 1) {
+        interval = setInterval(() => {
+          setCurrentStep(prev => {
+            const nextStep = prev + 1;
+            const nextStepData = visualSteps[nextStep];
+            if (nextStepData?.line !== undefined) {
+              setCurrentLine(nextStepData.line);
+              if (DEBUG) console.log('⏩ Auto-advancing to step', nextStep, 'line:', nextStepData.line);
+            }
+            if (nextStep >= visualSteps.length - 1) {
+              setIsExecuting(false);
+              showStatus('success', 'Execution completed!');
+            }
+            return nextStep;
+          });
+        }, executionSpeed);
+      } else {
+        setIsExecuting(false);
+        showStatus('success', 'Execution completed!');
+      }
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isExecuting, isPaused, currentStep, visualSteps, executionSpeed]);
 
   // ==================== UTILITY FUNCTIONS ====================
   const showStatus = (type, message) => {
@@ -189,49 +252,8 @@ def fibonacci(n):
     setCurrentLine(null);
   };
 
-  // ==================== AUTO PLAYBACK (FIXED) ====================
-  React.useEffect(() => {
-    let interval;
-    
-    if (isExecuting && !isPaused && visualSteps.length > 0) {
-      if (currentStep < visualSteps.length - 1) {
-        interval = setInterval(() => {
-          setCurrentStep(prev => {
-            const nextStep = prev + 1;
-            
-            // FIX: Update line highlighting during auto-advance
-            const nextStepData = visualSteps[nextStep];
-            if (nextStepData?.line !== undefined) {
-              setCurrentLine(nextStepData.line);
-              console.log('⏩ Auto-advancing to step', nextStep, 'line:', nextStepData.line);
-            }
-            
-            // Check if this is the last step
-            if (nextStep >= visualSteps.length - 1) {
-              setIsExecuting(false);
-              showStatus('success', 'Execution completed!');
-            }
-            
-            return nextStep;
-          });
-        }, executionSpeed);
-      } else {
-        // Already at last step
-        setIsExecuting(false);
-        showStatus('success', 'Execution completed!');
-      }
-    }
-    
-    return () => {
-      if (interval) {
-        clearInterval(interval);
-      }
-    };
-  }, [isExecuting, isPaused, currentStep, visualSteps, executionSpeed]);
-
   return (
     <div className="app-container">
-      {/* Sticky Header Control Panel */}
       <HeaderControlPanel
         language={language}
         level={level}
@@ -254,7 +276,6 @@ def fibonacci(n):
         totalSteps={visualSteps.length}
       />
 
-      {/* Main Content Area */}
       <CodeExecutionPanel
         code={code}
         language={language}
@@ -266,15 +287,10 @@ def fibonacci(n):
         onBackToEditor={handleBackToEditor}
       />
 
-      {/* Explanation Overlay */}
       {viewMode === 'explain' && explanation && (
-        <ExplanationOverlay
-          explanation={explanation}
-          onClose={handleCloseExplanation}
-        />
+        <ExplanationOverlay explanation={explanation} onClose={handleCloseExplanation} />
       )}
 
-      {/* Status Bar */}
       <StatusBar status={status} />
     </div>
   );

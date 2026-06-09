@@ -5,7 +5,7 @@ from pydantic import BaseModel, validator, Field
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
-import google.generativeai as genai
+#import google.generativeai as genai
 import os
 from dotenv import load_dotenv
 import json
@@ -17,6 +17,8 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime
 from code_analyzer import generate_execution_steps
 from universal_visualizer import UniversalCodeTracer
+from google import genai
+from google.genai import types
 
 # Configure logging
 logging.basicConfig(
@@ -75,15 +77,15 @@ MAX_DELAY = 60  # seconds
 
 if API_KEY:
     try:
-        genai.configure(api_key=API_KEY)
-        model = genai.GenerativeModel('models/gemini-2.5-flash')
-        logger.info("✅ Gemini API configured successfully")
+        client = genai.Client(api_key=API_KEY)
+        logger.info("✅ Gemini client configured successfully")
     except Exception as e:
-        logger.error(f"❌ Gemini API configuration failed: {e}")
-        model = None
+        logger.error(f"❌ Gemini client configuration failed: {e}")
+        client = None
 else:
     logger.error("❌ GEMINI_API_KEY not found in environment!")
-    model = None
+    client = None
+
 
 # Response caching (in-memory)
 response_cache = {}
@@ -208,7 +210,7 @@ async def health_check():
         "version": "2.0.0",
         "services": {
             "api": "operational",
-            "gemini_ai": "operational" if (API_KEY and model) else "unavailable",
+            "gemini_ai": "operational" if (API_KEY and client) else "unavailable",
             "code_analyzer": "operational",
             "universal_visualizer": "operational",
             "cache": f"{len(response_cache)}/{MAX_CACHE_SIZE} items"
@@ -221,7 +223,7 @@ async def health_check():
     }
     
     # Log health check
-    logger.info(f"Health check performed - Gemini: {'✅' if (API_KEY and model) else '❌'}")
+    logger.info(f"Health check performed - Gemini: {'✅' if (API_KEY and client) else '❌'}")
     
     return health_status
 
@@ -256,16 +258,22 @@ def parse_ai_json_response(text: str) -> dict:
             detail=f"Failed to parse AI response: {str(e)}"
         )
 
-async def call_gemini_with_timeout(prompt: str, timeout: int = 30):
+async def call_gemini_with_timeout(prompt: str, timeout: int = 60):
     """Call Gemini API with timeout protection"""
     try:
         loop = asyncio.get_event_loop()
-        
-        # Run in executor with timeout
         result = await asyncio.wait_for(
             loop.run_in_executor(
-                None, 
-                lambda: model.generate_content(prompt)
+                None,
+                lambda: client.models.generate_content(
+                    model='gemini-2.5-flash',
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        thinking_config=types.ThinkingConfig(thinking_budget=0),
+                        response_mime_type="application/json",
+                        temperature=0.2
+                    )
+                )
             ),
             timeout=timeout
         )
@@ -274,7 +282,7 @@ async def call_gemini_with_timeout(prompt: str, timeout: int = 30):
         logger.error(f"AI request timed out after {timeout}s")
         raise HTTPException(
             status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-            detail=f"AI service timeout - request took longer than {timeout} seconds"
+            detail=f"AI service timeout after {timeout} seconds"
         )
 
 @app.post("/explain")
@@ -282,7 +290,7 @@ async def call_gemini_with_timeout(prompt: str, timeout: int = 30):
 async def explain_code(request: Request, code_request: CodeRequest):
     """Explain code with AI-powered analysis (with caching)"""
     
-    if not API_KEY or not model:
+    if not API_KEY or not client:
         logger.error("API key not configured")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -341,7 +349,7 @@ Level guidelines for {code_request.level}:
 """
 
         logger.debug("Calling Gemini API with timeout...")
-        response = await call_gemini_with_timeout(prompt, timeout=30)
+        response = await call_gemini_with_timeout(prompt, timeout=60)
         logger.debug("Gemini API responded")
         
         explanation = parse_ai_json_response(response.text)
@@ -368,7 +376,7 @@ Level guidelines for {code_request.level}:
 async def detect_bugs(request: Request, code_request: CodeRequest):
     """Detect potential bugs and suggest fixes (with caching)"""
     
-    if not API_KEY or not model:
+    if not API_KEY or not client:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="AI service not configured. Please set GEMINI_API_KEY in environment."
@@ -436,7 +444,7 @@ Return empty arrays if no issues found.
 """
 
         logger.debug("Calling Gemini API for bug detection...")
-        response = await call_gemini_with_timeout(prompt, timeout=30)
+        response = await call_gemini_with_timeout(prompt, timeout=60)
         bug_analysis = parse_ai_json_response(response.text)
         
         # Cache the response
