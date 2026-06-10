@@ -575,7 +575,7 @@
 }
 
 /* Responsive adjustments */
-@media (max-width: 1200px) {
+@media (max-width: 900px) {
   .split-view {
     grid-template-columns: 1fr;
     grid-template-rows: auto 1fr;
